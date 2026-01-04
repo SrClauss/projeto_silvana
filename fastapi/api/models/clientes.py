@@ -3,14 +3,23 @@ from typing import Optional
 from datetime import datetime
 from pymongo import ObjectId
 
+class Endereco(BaseModel):
+    cep: str
+    logradouro: str
+    bairro: str
+    cidade: str
+    estado: str
+    numero: str
+    complemento: Optional[str] = None
+
 class Cliente(BaseModel):
     id = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     nome: str
     telefone: str
-    endereco: str
+    endereco: Endereco
     cpf: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
 
     class Config:
-        allow_population_by_field_name = 
+        allow_population_by_field_name = True
