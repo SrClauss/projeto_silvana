@@ -1,0 +1,20 @@
+{
+  "terminals": [
+    {
+      "name": "Backend",
+      "promptName": "backend",
+      "command": "uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+      "cwd": "./fastapi",
+      "closeCommand": "pkill -f uvicorn || true",
+      "keepOpen": false
+    },
+    {
+      "name": "Frontend",
+      "promptName": "frontend",
+      "command": "npm run dev",
+      "cwd": "./react",
+      "closeCommand": "pkill -f vite || true",
+      "keepOpen": false
+    }
+  ]
+}
