@@ -2,7 +2,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
-
+import api.models
+from api.routers import (
+    auth,
+    reports,
+    desejo_cliente_router,
+    clientes_router,
+    produtos_router,
+    condicionais_fornecedor_router,
+    faturamento_router,
+    condicionais_cliente_router,
+    desejos_cliente_router,
+    users_router,
+)
 
 app = FastAPI()
 
@@ -36,3 +48,15 @@ app.add_middleware(
 @app.get("/say_my_name")
 async def say_my_name():
     return {"message": "Heisenberg"}
+
+# Incluir routers
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(reports.router, prefix="/reports", tags=["reports"])
+app.include_router(desejo_cliente_router.router, prefix="/desejos", tags=["desejos"])
+app.include_router(clientes_router.router, prefix="/clientes", tags=["clientes"])
+app.include_router(produtos_router.router, prefix="/produtos", tags=["produtos"])
+app.include_router(condicionais_fornecedor_router.router, prefix="/condicionais-fornecedor", tags=["condicionais-fornecedor"])
+app.include_router(faturamento_router.router, prefix="/faturamento", tags=["faturamento"])
+app.include_router(condicionais_cliente_router.router, prefix="/condicionais-cliente", tags=["condicionais-cliente"])
+app.include_router(desejos_cliente_router.router, prefix="/desejos-cliente", tags=["desejos-cliente"])
+app.include_router(users_router.router, prefix="/users", tags=["users"])

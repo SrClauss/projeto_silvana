@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
-from pymongo import ObjectId
+from bson import ObjectId
 
 class Endereco(BaseModel):
     cep: str
@@ -13,7 +13,7 @@ class Endereco(BaseModel):
     complemento: Optional[str] = None
 
 class Cliente(BaseModel):
-    id = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     nome: str
     telefone: str
     endereco: Endereco
@@ -22,4 +22,5 @@ class Cliente(BaseModel):
     updated_at: Optional[datetime] = None
 
     class Config:
-        allow_population_by_field_name = True
+        populate_by_name = True
+

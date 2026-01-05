@@ -1,15 +1,20 @@
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime
-from pymongo import ObjectId
+from bson import ObjectId
 from bcrypt import hashpw, gensalt
+from enum import Enum
+
+class Role(str, Enum):
+    ADMIN = "admin"
+    VENDEDOR = "vendedor"
 
 class User(BaseModel):
-    id = Field(default_factory=lambda: str(ObjectId()), alias="_id")
+    id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     name: str
     email: str
     hashed_password: str
-    role: str
+    role: Role
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
 
@@ -23,14 +28,13 @@ class User(BaseModel):
         return hashpw(value.encode('utf-8'), self.hashed_password.encode('utf-8')) == self.hashed_password.encode('utf-8')
     
     class Config:
-        allow_population_by_field_name = True
-        fields = {"hashed_password": {"exclude": True}}
+        populate_by_name = True
 
 class UserCreate(BaseModel):
     name: str
     email: str
     password: str
-    role: str
+    role: Role
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None

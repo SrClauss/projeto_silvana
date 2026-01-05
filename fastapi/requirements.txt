@@ -4,3 +4,5 @@ motor
 pydantic
 uvicorn
 bcrypt
+passlib
+python-jose[cryptography]
