@@ -12,6 +12,7 @@ class Produto(BaseModel):
     id: str = Field(default_factory=lambda: str(ObjectId()), alias="_id")
     codigo_interno: str
     codigo_externo: str
+    descricao: str
     marca_fornecedor: str
     sessao: str
     em_condicional: int = 0

@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import api.models
+from passlib.context import CryptContext
+from api.models.users import User, Role
 from api.routers import (
     auth,
     reports,
@@ -17,6 +19,46 @@ from api.routers import (
 )
 
 app = FastAPI()
+
+# Contexto de hash de senha
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+@app.on_event("startup")
+async def startup_event():
+    # Conectar ao MongoDB
+    mongodb_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017/projeto_silvana")
+    client = AsyncIOMotorClient(mongodb_url)
+    db = client.get_database("projeto_silvana")
+    
+    # Verificar se o usuário admin existe
+    admin_user = await db.users.find_one({"email": "admin"})
+    if not admin_user:
+        # Criar o usuário admin
+        admin_password = os.getenv("DEFAULT_ADMIN_PASSWORD", "dy213y1984")
+        hashed_password = get_password_hash(admin_password)
+        user = User(
+            name="Admin",
+            email="admin",
+            hashed_password=hashed_password,
+            role=Role.ADMIN
+        )
+        await db.users.insert_one(user.dict(by_alias=True))
+        print("Usuário admin criado com sucesso!")
+    else:
+        print("Usuário admin já existe.")
+
+    # Garantir índices
+    try:
+        await db.produtos.create_index("codigo_interno", unique=True)
+        print("Índice único para codigo_interno garantido.")
+    except Exception as e:
+        print("Falha ao criar índice de codigo_interno:", e)
+    
+    # Fechar conexão (opcional, pois Motor gerencia conexões)
+    # client.close()
 
 # Configurar CORS via variável de ambiente ALLOWED_ORIGINS (comma-separated).
 # Exemplo: ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173

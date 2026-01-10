@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Box, Typography, Button, FormControlLabel, Checkbox } from '@mui/material'
 import InputWell from './InputWell'
-import axios from 'axios'
+import axios from 'axios' 
+import { useNavigate } from 'react-router-dom';
 
 const LoginForm = () => {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ text: string; color?: string } | null>(null)
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,10 +22,11 @@ const LoginForm = () => {
       if (token) {
         setStatus({ text: 'Autenticado com sucesso', color: '#157F3A' })
         localStorage.setItem('token', token)
+        navigate('/dashboard');
       } else {
         setStatus({ text: 'Resposta inesperada do servidor', color: '#c0392b' })
       }
-    } catch (err) {
+    } catch {
       setStatus({ text: 'Acesso Negado: Contacte o Administrador.', color: '#c0392b' })
     } finally {
       setLoading(false)
@@ -40,7 +43,7 @@ const LoginForm = () => {
 
       <Box sx={{ mb: 2 }}>
         <InputWell placeholder="ID de Utilizador" value={email} onChange={(e) => setEmail(e.target.value)} />
-      </Box>
+      </Box> 
 
       <Box sx={{ mb: 1 }}>
         <InputWell type="password" placeholder="Chave de Segurança" value={password} onChange={(e) => setPassword(e.target.value)} />

@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from ..routers.auth import require_role
 from ..models.users import Role
-from ..database import condicional_fornecedor_db, condicional_cliente_db, desejo_cliente_db, tags_db
+from ..database import condicional_fornecedor_db, condicional_cliente_db, desejo_cliente_db, tags_db, saidas_db, despesas_db, imposto_a_recolher_db
+from datetime import datetime, timedelta
 
 router = APIRouter(dependencies=[Depends(require_role(Role.ADMIN))])
 async def desempenho_condicionais_fornecedor():
@@ -131,3 +132,139 @@ async def lucro(mes: int, ano: int):
     total_despesas = sum(d["valor"] for d in despesas) if despesas else 0
     
     return {"lucro": total_vendas - total_despesas, "vendas": total_vendas, "despesas": total_despesas}
+
+@router.get("/dashboard")
+async def get_dashboard():
+    today = datetime.today()
+    start_of_month = today.replace(day=1)
+    start_of_last_month = (start_of_month - timedelta(days=1)).replace(day=1)
+    end_of_last_month = start_of_month - timedelta(days=1)
+
+    # Daily Sales: last 30 days, only vendas
+    thirty_days_ago = today - timedelta(days=30)
+    daily_sales_pipeline = [
+        {"$match": {"data_saida": {"$gte": thirty_days_ago}, "tipo": "venda"}},
+        {"$group": {"_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$data_saida"}}, "sales": {"$sum": "$valor_total"}}},
+        {"$sort": {"_id": 1}}
+    ]
+    daily_sales_cursor = saidas_db.db.saidas.aggregate(daily_sales_pipeline)
+    daily_sales = [{"date": doc["_id"], "sales": doc["sales"]} async for doc in daily_sales_cursor]
+
+    # Weekly Sales: last 5 weeks with variation
+    five_weeks_ago = today - timedelta(weeks=5)
+    weekly_sales_pipeline = [
+        {"$match": {"data_saida": {"$gte": five_weeks_ago}, "tipo": "venda"}},
+        {"$group": {"_id": {"$isoWeek": "$data_saida"}, "sales": {"$sum": "$valor_total"}}},
+        {"$sort": {"_id": 1}}
+    ]
+    weekly_sales_cursor = saidas_db.db.saidas.aggregate(weekly_sales_pipeline)
+    weekly_sales_docs = [doc async for doc in weekly_sales_cursor]
+    weekly_sales = []
+    for i, doc in enumerate(weekly_sales_docs):
+        variation = 0.0
+        if i > 0:
+            prev_sales = weekly_sales_docs[i-1]["sales"]
+            if prev_sales > 0:
+                variation = round(((doc["sales"] - prev_sales) / prev_sales) * 100, 1)
+        # For simplicity, use week number, frontend can format
+        weekly_sales.append({"week": f"Semana {i+1}", "total": doc["sales"], "variation": variation})
+
+    # Monthly Comparison: last month vs current month
+    current_month_pipeline = [
+        {"$match": {"data_saida": {"$gte": start_of_month}, "tipo": "venda"}},
+        {"$group": {"_id": None, "sales": {"$sum": "$valor_total"}}}
+    ]
+    last_month_pipeline = [
+        {"$match": {"data_saida": {"$gte": start_of_last_month, "$lte": end_of_last_month}, "tipo": "venda"}},
+        {"$group": {"_id": None, "sales": {"$sum": "$valor_total"}}}
+    ]
+    current_month_cursor = saidas_db.db.saidas.aggregate(current_month_pipeline)
+    current_month_docs = [doc async for doc in current_month_cursor]
+    current_sales = current_month_docs[0]["sales"] if current_month_docs else 0
+
+    last_month_cursor = saidas_db.db.saidas.aggregate(last_month_pipeline)
+    last_month_docs = [doc async for doc in last_month_cursor]
+    last_sales = last_month_docs[0]["sales"] if last_month_docs else 0
+
+    monthly_comparison = {"lastMonth": last_sales, "currentMonth": current_sales}
+
+    # Weekly Comparison: current week vs last week, day by day
+    start_of_week = today - timedelta(days=today.weekday())
+    start_of_last_week = start_of_week - timedelta(weeks=1)
+    end_of_last_week = start_of_week - timedelta(days=1)
+
+    current_week_pipeline = [
+        {"$match": {"data_saida": {"$gte": start_of_week}, "tipo": "venda"}},
+        {"$group": {"_id": {"$dayOfWeek": "$data_saida"}, "sales": {"$sum": "$valor_total"}}},
+        {"$sort": {"_id": 1}}
+    ]
+    last_week_pipeline = [
+        {"$match": {"data_saida": {"$gte": start_of_last_week, "$lte": end_of_last_week}, "tipo": "venda"}},
+        {"$group": {"_id": {"$dayOfWeek": "$data_saida"}, "sales": {"$sum": "$valor_total"}}},
+        {"$sort": {"_id": 1}}
+    ]
+    current_week_cursor = saidas_db.db.saidas.aggregate(current_week_pipeline)
+    current_week_docs = {doc["_id"]: doc["sales"] async for doc in current_week_cursor}
+
+    last_week_cursor = saidas_db.db.saidas.aggregate(last_week_pipeline)
+    last_week_docs = {doc["_id"]: doc["sales"] async for doc in last_week_cursor}
+
+    day_names = {1: "Segunda", 2: "Terça", 3: "Quarta", 4: "Quinta", 5: "Sexta", 6: "Sábado", 7: "Domingo"}
+    weekly_comparison = []
+    for day in range(1, 8):  # 1=Monday, 7=Sunday
+        current = current_week_docs.get(day, 0)
+        last = last_week_docs.get(day, 0)
+        weekly_comparison.append({"day": day_names[day], "currentWeek": current, "previousWeek": last})
+
+    # Other metrics
+    faturamento_mes_corrente = current_sales
+    gasto_mes_corrente_pipeline = [
+        {"$match": {"data_despesa": {"$gte": start_of_month}}},
+        {"$group": {"_id": None, "total": {"$sum": "$valor"}}}
+    ]
+    gasto_cursor = despesas_db.db.despesas.aggregate(gasto_mes_corrente_pipeline)
+    gasto_docs = [doc async for doc in gasto_cursor]
+    gasto_mes_corrente = gasto_docs[0]["total"] if gasto_docs else 0
+
+    # Pecas em condicionais: count from condicional_cliente
+    pecas_em_condicionais = await condicional_cliente_db.db.condicional_clientes.count_documents({})
+
+    # Percentual conversao condicionais: assume some logic, placeholder
+    percentual_conversao_condicionais = 75.0  # Need to calculate based on converted vs total
+
+    # Pecas devolvidas por condicional: placeholder
+    pecas_devolvidas_por_condicional = 30
+
+    # Ticket medio condicional: average valor_total from condicional_cliente
+    ticket_pipeline = [
+        {"$group": {"_id": None, "avg": {"$avg": "$valor_total"}}}
+    ]
+    ticket_cursor = condicional_cliente_db.db.condicional_clientes.aggregate(ticket_pipeline)
+    ticket_docs = [doc async for doc in ticket_cursor]
+    ticket_medio_condicional = ticket_docs[0]["avg"] if ticket_docs else 0
+
+    # Impostos a recolher: sum from imposto_a_recolher
+    imposto_pipeline = [
+        {"$group": {"_id": None, "total": {"$sum": "$valor"}}}
+    ]
+    imposto_cursor = imposto_a_recolher_db.db.imposto_a_recolher.aggregate(imposto_pipeline)
+    imposto_docs = [doc async for doc in imposto_cursor]
+    impostos_a_recolher = imposto_docs[0]["total"] if imposto_docs else 0
+
+    # Despesas meios pagamento: sum from modalidade_pagamento or something, placeholder
+    despesas_meios_pagamento = 1500
+
+    return {
+        "faturamentoMesCorrente": faturamento_mes_corrente,
+        "gastoMesCorrente": gasto_mes_corrente,
+        "pecasEmCondicionais": pecas_em_condicionais,
+        "percentualConversaoCondicionais": percentual_conversao_condicionais,
+        "pecasDevolvidasPorCondicional": pecas_devolvidas_por_condicional,
+        "ticketMedioCondicional": ticket_medio_condicional,
+        "impostosARecolher": impostos_a_recolher,
+        "despesasMeiosPagamento": despesas_meios_pagamento,
+        "dailySales": daily_sales,
+        "weeklySales": weekly_sales,
+        "monthlyComparison": monthly_comparison,
+        "weeklyComparison": weekly_comparison,
+    }

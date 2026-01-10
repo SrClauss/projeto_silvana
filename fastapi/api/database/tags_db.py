@@ -2,6 +2,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from ..models.tags import Tag
 import os
+from bson import ObjectId
+from datetime import datetime
 
 client = AsyncIOMotorClient(os.getenv("MONGODB_URL", "mongodb://localhost:27017"))
 db = client["projeto_silvana"]
@@ -16,6 +18,20 @@ async def get_tags():
 
 async def get_tag_by_id(tag_id: str):
     return await db.tags.find_one({"_id": tag_id})
+
+async def find_tags_by_query(q: str):
+    regex = {"$regex": q, "$options": "i"}
+    return await db.tags.find({"descricao": regex}).to_list(None)
+
+async def get_or_create_tag_by_descricao(descricao: str):
+    # busca case-insensitive usando descricao_case_insensitive
+    existing = await db.tags.find_one({"descricao_case_insensitive": descricao.lower()})
+    if existing:
+        return existing
+    tag = Tag(descricao=descricao)  # Usa o modelo para popular automaticamente
+    result = await db.tags.insert_one(tag.dict(by_alias=True))
+    inserted = await db.tags.find_one({"_id": result.inserted_id})
+    return inserted
 
 async def update_tag(tag_id: str, update_data: dict):
     return await db.tags.find_one_and_update(

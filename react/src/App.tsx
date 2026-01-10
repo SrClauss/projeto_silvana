@@ -1,29 +1,25 @@
-import { useEffect, useState } from 'react'
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import LoginPage from './pages/Login/LoginPage'
+import Dashboard from './pages/Dashboard/Dashboard';
+import Produtos from './pages/Produtos/Produtos';
+import TagsPage from './pages/Tags/Tags';
+import MarcasFornecedores from './pages/MarcasFornecedores/MarcasFornecedores';
+import LoggedLayout from './components/LoggedLayout';
 import './App.css'
-import axios from 'axios'
-function App() {
-  const [heisemberg, setHeisenberg] = useState('')
-  const handleSayMyName = async () => {
-    try {
-      const response = await axios.get('http://localhost:8000/say_my_name')
-      setHeisenberg(response.data.message)
-    } catch (error) {
-      console.error('Error fetching data:', error)
-    }
-  }
-  useEffect(() => {
-    const fetchData = async () => {
-      await handleSayMyName()
-    }
-    fetchData()
-  }, [])
 
- 
+function App() {
   return (
-    <>
-      <div>{heisemberg}</div>
-    </>
-  )
+    <Router>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/dashboard" element={<LoggedLayout activePage="/dashboard"><Dashboard /></LoggedLayout>} />
+        <Route path="/produtos" element={<LoggedLayout activePage="/produtos"><Produtos /></LoggedLayout>} />
+        <Route path="/tags" element={<LoggedLayout activePage="/tags"><TagsPage /></LoggedLayout>} />
+        <Route path="/marcas-fornecedores" element={<LoggedLayout activePage="/marcas-fornecedores"><MarcasFornecedores /></LoggedLayout>} />
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    </Router>
+  );
 }
 
 export default App

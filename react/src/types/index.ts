@@ -1,0 +1,70 @@
+export type TypoEntrada = "compra" | "devolucao" | "condicional_fornecedor";
+
+export type TypoSaida = "venda" | "perca" | "doacao" | "devolucao" | "condicional_fornecedor";
+
+export interface Tag {
+  _id: string;
+  descricao: string;
+  descricao_case_insensitive: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Item {
+  quantity: number;
+  acquisition_date: string;
+}
+
+export interface Entrada {
+  _id: string;
+  produtos_id: string;
+  quantidade: number;
+  cliente_id?: string;
+  fornecedor_id?: string;
+  tipo: TypoEntrada;
+  data_entrada: string;
+  observacoes?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Saida {
+  _id: string;
+  produtos_id: string;
+  cliente_id?: string;
+  fornecedor_id?: string;
+  quantidade: number;
+  tipo: TypoSaida;
+  data_saida: string;
+  valor_total?: number;
+  observacoes?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Produto {
+  _id: string;
+  codigo_interno: string;
+  codigo_externo: string;
+  descricao: string;
+  marca_fornecedor: string;
+  sessao: string;
+  em_condicional: number;
+  itens: Item[];
+  preco_custo: number;
+  preco_venda: number;
+  saidas: Saida[];
+  entradas: Entrada[];
+  tags: Tag[];
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface MarcaFornecedor {
+  _id: string;
+  nome: string;
+  fornecedor: string;
+  cnpj?: string;
+  created_at: string;
+  updated_at?: string;
+}
