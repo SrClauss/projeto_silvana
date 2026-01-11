@@ -139,3 +139,243 @@ async def processar_baixa_condicional(condicional_id: str, produtos_devolvidos: 
     })
 
     return {"status": "baixa processada"}
+
+async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: str, quantidade: int):
+    """
+    Envia um produto como condicional para cliente.
+    Marca itens no produto com condicional_cliente_id.
+    """
+    condicional = await get_condicional_cliente_by_id(condicional_id)
+    if not condicional:
+        return {"error": "Condicional não encontrado"}
+    
+    if not condicional.get("ativa"):
+        return {"error": "Condicional não está ativa"}
+    
+    produto = await db.produtos.find_one({"_id": produto_id})
+    if not produto:
+        return {"error": "Produto não encontrado"}
+    
+    # Verifica se há estoque disponível (não em condicional)
+    itens_disponiveis = [
+        item for item in produto.get("itens", [])
+        if not item.get("condicional_fornecedor_id") and not item.get("condicional_cliente_id")
+    ]
+    
+    estoque_disponivel = sum(item.get("quantity", 0) for item in itens_disponiveis)
+    
+    if estoque_disponivel < quantidade:
+        return {"error": f"Estoque insuficiente. Disponível: {estoque_disponivel}"}
+    
+    # Marca itens FIFO como condicional de cliente
+    itens_ordenados = sorted(
+        itens_disponiveis,
+        key=lambda x: x.get("acquisition_date", datetime.utcnow())
+    )
+    
+    quantidade_restante = quantidade
+    itens_atualizados = list(produto.get("itens", []))
+    
+    for item in itens_ordenados:
+        if quantidade_restante <= 0:
+            break
+        
+        # Encontra o índice do item na lista original
+        idx = next(
+            (i for i, it in enumerate(itens_atualizados) 
+             if it.get("acquisition_date") == item.get("acquisition_date") and
+                it.get("quantity") == item.get("quantity") and
+                not it.get("condicional_fornecedor_id") and
+                not it.get("condicional_cliente_id")),
+            None
+        )
+        
+        if idx is None:
+            continue
+        
+        item_quantity = itens_atualizados[idx].get("quantity", 0)
+        
+        if item_quantity <= quantidade_restante:
+            # Marca o item completamente
+            itens_atualizados[idx]["condicional_cliente_id"] = condicional_id
+            quantidade_restante -= item_quantity
+        else:
+            # Divide o item
+            itens_atualizados[idx]["quantity"] = item_quantity - quantidade_restante
+            novo_item = {
+                "quantity": quantidade_restante,
+                "acquisition_date": itens_atualizados[idx]["acquisition_date"],
+                "condicional_fornecedor_id": None,
+                "condicional_cliente_id": condicional_id
+            }
+            itens_atualizados.append(novo_item)
+            quantidade_restante = 0
+    
+    # Atualiza o produto
+    await db.produtos.update_one(
+        {"_id": produto_id},
+        {
+            "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow()},
+            "$inc": {"em_condicional": quantidade}
+        }
+    )
+    
+    # Atualiza a condicional com o produto se não existir
+    produto_existente = next(
+        (p for p in condicional.get("produtos", []) if p["produto_id"] == produto_id),
+        None
+    )
+    
+    if produto_existente:
+        # Incrementa quantidade
+        await db.condicional_clientes.update_one(
+            {"_id": condicional_id, "produtos.produto_id": produto_id},
+            {"$inc": {"produtos.$.quantidade": quantidade}}
+        )
+    else:
+        # Adiciona novo produto
+        await db.condicional_clientes.update_one(
+            {"_id": condicional_id},
+            {"$push": {"produtos": {"produto_id": produto_id, "quantidade": quantidade}}}
+        )
+    
+    return {"success": True, "produto_id": produto_id, "quantidade": quantidade}
+
+async def processar_retorno_condicional_cliente(condicional_id: str, produtos_devolvidos_codigos: list):
+    """
+    Processa o retorno de produtos de uma condicional de cliente.
+    produtos_devolvidos_codigos: lista de códigos internos dos produtos devolvidos
+    O que não foi devolvido é considerado vendido.
+    """
+    condicional = await get_condicional_cliente_by_id(condicional_id)
+    if not condicional:
+        return {"error": "Condicional não encontrado"}
+    
+    if not condicional.get("ativa"):
+        return {"error": "Condicional já foi processada"}
+    
+    vendas_criadas = []
+    devolucoes_processadas = []
+    
+    # Para cada produto na condicional
+    for prod_qty in condicional.get("produtos", []):
+        produto_id = prod_qty["produto_id"]
+        quantidade_enviada = prod_qty["quantidade"]
+        
+        # Busca o produto
+        produto = await db.produtos.find_one({"_id": produto_id})
+        if not produto:
+            continue
+        
+        codigo_interno = produto.get("codigo_interno")
+        
+        # Conta quantos deste produto foram devolvidos (por código interno)
+        quantidade_devolvida = produtos_devolvidos_codigos.count(codigo_interno)
+        quantidade_vendida = quantidade_enviada - quantidade_devolvida
+        
+        # Encontra itens deste condicional no produto
+        itens_condicional = [
+            (i, item) for i, item in enumerate(produto.get("itens", []))
+            if item.get("condicional_cliente_id") == condicional_id
+        ]
+        
+        # Processa devoluções - remove marca de condicional
+        itens_atualizados = list(produto.get("itens", []))
+        quantidade_devolucao_restante = quantidade_devolvida
+        
+        for idx, item in itens_condicional:
+            if quantidade_devolucao_restante <= 0:
+                break
+            
+            item_qty = item.get("quantity", 0)
+            
+            if item_qty <= quantidade_devolucao_restante:
+                # Desmarca completamente
+                itens_atualizados[idx]["condicional_cliente_id"] = None
+                quantidade_devolucao_restante -= item_qty
+            else:
+                # Divide o item
+                itens_atualizados[idx]["quantity"] = item_qty - quantidade_devolucao_restante
+                novo_item = {
+                    "quantity": quantidade_devolucao_restante,
+                    "acquisition_date": item["acquisition_date"],
+                    "condicional_fornecedor_id": item.get("condicional_fornecedor_id"),
+                    "condicional_cliente_id": None
+                }
+                itens_atualizados.append(novo_item)
+                quantidade_devolucao_restante = 0
+        
+        # Processa vendas - remove itens marcados que não foram devolvidos (FIFO)
+        quantidade_venda_restante = quantidade_vendida
+        
+        # Re-encontra itens ainda marcados com este condicional
+        itens_para_venda = [
+            (i, item) for i, item in enumerate(itens_atualizados)
+            if item.get("condicional_cliente_id") == condicional_id
+        ]
+        
+        # Ordena por acquisition_date (FIFO)
+        itens_para_venda.sort(key=lambda x: x[1].get("acquisition_date", datetime.utcnow()))
+        
+        for idx, item in itens_para_venda:
+            if quantidade_venda_restante <= 0:
+                break
+            
+            item_qty = item.get("quantity", 0)
+            
+            if item_qty <= quantidade_venda_restante:
+                # Remove completamente
+                itens_atualizados[idx] = None  # Marca para remoção
+                quantidade_venda_restante -= item_qty
+            else:
+                # Reduz quantidade
+                itens_atualizados[idx]["quantity"] = item_qty - quantidade_venda_restante
+                quantidade_venda_restante = 0
+        
+        # Remove itens marcados como None
+        itens_atualizados = [item for item in itens_atualizados if item is not None]
+        
+        # Atualiza o produto
+        await db.produtos.update_one(
+            {"_id": produto_id},
+            {
+                "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow()},
+                "$inc": {"em_condicional": -quantidade_enviada}
+            }
+        )
+        
+        # Cria saída de venda se houve venda
+        if quantidade_vendida > 0:
+            saida = Saida(
+                produtos_id=produto_id,
+                cliente_id=condicional.get("cliente_id"),
+                quantidade=quantidade_vendida,
+                tipo="venda",
+                data_saida=datetime.utcnow(),
+                observacoes=f"Venda por condicional {condicional_id}"
+            )
+            result = await db.saidas.insert_one(saida.dict(by_alias=True))
+            vendas_criadas.append({
+                "saida_id": str(result.inserted_id),
+                "produto_id": produto_id,
+                "quantidade": quantidade_vendida
+            })
+        
+        if quantidade_devolvida > 0:
+            devolucoes_processadas.append({
+                "produto_id": produto_id,
+                "quantidade": quantidade_devolvida
+            })
+    
+    # Encerra a condicional
+    await update_condicional_cliente(condicional_id, {
+        "data_devolucao": datetime.utcnow(),
+        "ativa": False
+    })
+    
+    return {
+        "success": True,
+        "condicional_id": condicional_id,
+        "vendas_criadas": vendas_criadas,
+        "devolucoes_processadas": devolucoes_processadas
+    }
