@@ -30,7 +30,6 @@ const LoggedLayout: React.FC<LoggedLayoutProps> = ({ children }) => {
         variant="temporary"
         open={mobileOpen}
         onClose={handleDrawerToggle}
-        ModalProps={{ keepMounted: true }}
         sx={{ display: { xs: 'block', md: 'none' },
               '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 260, backgroundColor: customTheme.palette.opacicityBackground} }}
       >
@@ -54,7 +53,7 @@ const LoggedLayout: React.FC<LoggedLayoutProps> = ({ children }) => {
         flexGrow: 1
       }}>
         {/* Conteúdo alinhado à esquerda e ocupando toda a largura disponível ao lado da sidebar */}
-        <Box id="main-content" sx={{ width: '100%', height: '100%' }}>
+        <Box id="main-content" sx={{ width: '100%', height: '100%', px: { xs: 2, md: 3 }, py: { xs: 2, md: 3 } }}>
           {children}
         </Box>
       </Box>

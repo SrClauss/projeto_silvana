@@ -167,7 +167,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
               )}
               onOpen={() => searchMarcas('')}
               filterOptions={(options, { inputValue }) =>
-                options.filter((o) => typeof o === 'string' ? o.toLowerCase().includes(inputValue.toLowerCase()) : o.nome.toLowerCase().includes(inputValue.toLowerCase()) || o.fornecedor.toLowerCase().includes(inputValue.toLowerCase()))
+                options.filter((o) => o.nome.toLowerCase().includes(inputValue.toLowerCase()) || o.fornecedor.toLowerCase().includes(inputValue.toLowerCase()))
               }
               freeSolo
               fullWidth
