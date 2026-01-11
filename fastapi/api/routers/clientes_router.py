@@ -14,8 +14,9 @@ async def create_cliente_endpoint(cliente: Cliente):
     return {"id": cliente_id}
 
 @router.get("/", dependencies=[Depends(get_current_user)])
-async def get_clientes_endpoint():
-    return await get_clientes()
+async def get_clientes_endpoint(q: str | None = None):
+    """Optional query param `q` filters clientes by name (case-insensitive)."""
+    return await get_clientes(q)
 
 @router.get("/{cliente_id}", dependencies=[Depends(get_current_user)])
 async def get_cliente(cliente_id: str):

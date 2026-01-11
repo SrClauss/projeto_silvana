@@ -11,8 +11,14 @@ async def create_cliente(cliente: Cliente):
     result = await db.clientes.insert_one(cliente.dict(by_alias=True))
     return result.inserted_id
 
-async def get_clientes():
-    return await db.clientes.find().to_list(None)
+async def get_clientes(q: str | None = None):
+    if q:
+        # case-insensitive search on nome
+        regex = {"$regex": q, "$options": "i"}
+        cursor = db.clientes.find({"nome": regex})
+    else:
+        cursor = db.clientes.find()
+    return await cursor.to_list(None)
 
 async def get_cliente_by_id(cliente_id: str):
     return await db.clientes.find_one({"_id": cliente_id})
