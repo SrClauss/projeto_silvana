@@ -68,3 +68,23 @@ export interface MarcaFornecedor {
   created_at: string;
   updated_at?: string;
 }
+
+export interface Endereco {
+  cep: string;
+  logradouro: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+  numero: string;
+  complemento?: string;
+}
+
+export interface Cliente {
+  _id: string;
+  nome: string;
+  telefone: string;
+  endereco: Endereco;
+  cpf: string;
+  created_at: string;
+  updated_at?: string;
+}
