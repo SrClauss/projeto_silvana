@@ -263,7 +263,8 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
                 {newProduto.tags.map((t) => (
                   <Chip
                     key={t._id}
-                    label={t.descricao}
+                    label={t.descricao_case_insensitive ?? t.descricao}
+                    title={t.descricao}
                     onDelete={() => setNewProduto({ ...newProduto, tags: newProduto.tags.filter(x => x._id !== t._id) })}
                     sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }}
                   />

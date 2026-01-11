@@ -493,7 +493,7 @@ const Produtos: React.FC = () => {
                       <Typography variant="subtitle2">Tags</Typography>
                       <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
                         {viewProduto.tags.map((t) => (
-                          <Chip key={t._id} label={t.descricao} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }} />
+                          <Chip key={t._id} label={t.descricao_case_insensitive ?? t.descricao} title={t.descricao} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }} />
                         ))}
                       </Box>
                     </Box>
