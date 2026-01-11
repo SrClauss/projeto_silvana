@@ -1,16 +1,53 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Typography, Paper, Button, TextField, CircularProgress, IconButton } from '@mui/material';
-import { Add, Delete } from '@mui/icons-material';
+import {
+  Box,
+  Typography,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  TextField,
+  Button,
+  IconButton,
+  CircularProgress,
+  InputAdornment,
+} from '@mui/material';
+import { Add, Search, Visibility, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import type { Tag } from '../../types';
+import TagsModal from './components/TagsModal';
 
 const TagsPage: React.FC = () => {
+  const theme = useTheme();
   const [tags, setTags] = useState<Tag[]>([]);
+  const [filteredTags, setFilteredTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [openModal, setOpenModal] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [newTag, setNewTag] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const fetchTags = async () => {
+  useEffect(() => {
+    loadTags();
+  }, []);
+
+  useEffect(() => {
+    const filtered = tags.filter(t =>
+      t.descricao.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setFilteredTags(filtered);
+    setPage(0);
+  }, [tags, searchQuery]);
+
+  const loadTags = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -23,19 +60,31 @@ const TagsPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchTags(); }, []);
+  const handleChangePage = (_event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
 
-  const handleCreate = async () => {
-    if (!newTag.trim()) return;
-    setCreating(true);
-    try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post('/produtos/tags/', { descricao: newTag.trim() }, { headers: { Authorization: `Bearer ${token}` } });
-      setTags((t) => [...t, res.data]);
-      setNewTag('');
-    } catch (e) {
-      console.error(e);
-    } finally { setCreating(false); }
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const handleOpenModal = () => {
+    setEditingId(null);
+    setNewTag('');
+    setOpenModal(true);
+  };
+
+  const handleEdit = async (id: string) => {
+    const tag = tags.find(t => t._id === id);
+    if (!tag) return;
+    setEditingId(id);
+    setNewTag(tag.descricao);
+    setOpenModal(true);
+  };
+
+  const handleView = async (_id: string) => {
+    // Implementar se necessário
   };
 
   const handleDelete = async (id: string) => {
@@ -47,32 +96,112 @@ const TagsPage: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
+  const handleCreate = async () => {
+    if (!newTag.trim()) return;
+    setCreating(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (editingId) {
+        await axios.put(`/produtos/tags/${editingId}`, { descricao: newTag.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+        setTags((t) => t.map(x => x._id === editingId ? { ...x, descricao: newTag.trim() } : x));
+      } else {
+        const res = await axios.post('/produtos/tags/', { descricao: newTag.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+        setTags((t) => [...t, res.data]);
+      }
+      setOpenModal(false);
+      setNewTag('');
+      setEditingId(null);
+    } catch (e) {
+      console.error(e);
+    } finally { setCreating(false); }
+  };
+
+  const paginatedTags = filteredTags.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
-      <Typography variant="h4" sx={{ mb: 2, color: '#3D2B1F', fontFamily: 'serif', fontWeight: 700 }}>Tags</Typography>
-      <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <TextField size="small" value={newTag} onChange={(e) => setNewTag(e.target.value)} label="Nova tag" fullWidth />
-          <Button variant="contained" startIcon={<Add />} onClick={handleCreate} disabled={creating}>
-            {creating ? 'Criando...' : 'Criar'}
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>Tags</Typography>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+          <TextField
+            label="Buscar tags"
+            variant="outlined"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+            }}
+            fullWidth
+          />
+          <Button variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }}>
+            Adicionar Tag
           </Button>
         </Box>
-      </Paper>
-
-      <Paper sx={{ p: { xs: 2, md: 3 }, borderRadius: 2, maxWidth: '100%' }}>
         {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {tags.map(t => (
-              <Box key={t._id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography>{t.descricao}</Typography>
-                <IconButton size="small" onClick={() => handleDelete(t._id)}><Delete /></IconButton>
-              </Box>
-            ))}
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+            <CircularProgress />
           </Box>
+        ) : (
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Descrição</TableCell>
+                    <TableCell>Ações</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {paginatedTags.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={2} sx={{ textAlign: 'center', py: 6, color: theme.palette.text.secondary }}>Nenhuma tag encontrada</TableCell>
+                    </TableRow>
+                  ) : (
+                    paginatedTags.map((tag) => (
+                      <TableRow key={tag._id} hover>
+                        <TableCell>{tag.descricao_case_insensitive ?? tag.descricao}</TableCell>
+                        <TableCell>
+                          <IconButton size="small" onClick={() => handleView(tag._id)} aria-label="ver" sx={{ color: theme.palette.primary.main, mr: 1 }}>
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleEdit(tag._id)} aria-label="editar" sx={{ color: theme.palette.primary.main, mr: 1 }}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDelete(tag._id)} aria-label="deletar" sx={{ color: theme.palette.error?.main || 'red' }}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredTags.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          </>
         )}
       </Paper>
+      <TagsModal
+        open={openModal}
+        onClose={() => setOpenModal(false)}
+        editingId={editingId}
+        newTag={newTag}
+        setNewTag={setNewTag}
+        creating={creating}
+        handleCreate={handleCreate}
+      />
     </Box>
   );
 };

@@ -20,7 +20,7 @@ import { Add, Search, Edit, Delete } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import type { MarcaFornecedor } from '../../types';
-import MarcaFornecedorModal from '../../components/MarcaFornecedorModal';
+import MarcaFornecedorModal from './components/MarcaFornecedorModal';
 
 const MarcasFornecedores: React.FC = () => {
   const theme = useTheme();
