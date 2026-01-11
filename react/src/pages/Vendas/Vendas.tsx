@@ -19,7 +19,7 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 import axios from 'axios';
 import VendaModal from './components/VendaModal';
-import { Produto } from '../../types';
+import type { Produto } from '../../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 

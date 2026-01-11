@@ -21,7 +21,7 @@ import {
   DialogActions,
   TextField,
 } from '@mui/material';
-import { Add as AddIcon, Undo as UndoIcon } from '@mui/icons-material';
+import { Undo as UndoIcon } from '@mui/icons-material';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
