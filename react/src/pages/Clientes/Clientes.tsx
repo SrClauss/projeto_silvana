@@ -210,32 +210,48 @@ const Clientes: React.FC = () => {
       <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Clientes</Typography>
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Box sx={{ flex: 1 }}>
-            <Paper sx={{ p: 1, borderRadius: 2 }}>
-              <TextField
-                label="Buscar clientes"
-                variant="outlined"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      {loadingClientes ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
-                    </InputAdornment>
-                  ),
-                }}
-                fullWidth
-              />
-            </Paper>
-          </Box>
+          <TextField
+            size="small"
+            label="Buscar por nome ou CPF"
+            variant="outlined"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ minWidth: { sm: 320 }, width: { xs: '100%', sm: 'auto' } }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  {loadingClientes ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
+                </InputAdornment>
+              ),
+            }}
+          />
 
-          <Box>
-            <Paper sx={{ p: 1, borderRadius: 2, display: 'flex', alignItems: 'center' }}>
-              <Button size="small" variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, textTransform: 'uppercase', fontWeight: 700 }}>
-                Adicionar Cliente
-              </Button>
-            </Paper>
-          </Box>
+          <TextField
+            size="small"
+            label="Filtrar"
+            variant="outlined"
+            sx={{ minWidth: { sm: 160 }, width: { xs: '100%', sm: 'auto' } }}
+            disabled
+          />
+
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<Add />}
+            onClick={handleOpenModal}
+            sx={{
+              bgcolor: theme.palette.secondary.main,
+              color: theme.palette.primary.main,
+              boxShadow: '0 8px 18px rgba(0,0,0,0.25)',
+              borderRadius: '10px',
+              px: 3,
+              py: 1.2,
+              textTransform: 'uppercase',
+              fontWeight: 700,
+            }}
+          >
+            Adicionar Cliente
+          </Button>
         </Box>
       </Paper>
 
