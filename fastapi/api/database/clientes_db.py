@@ -11,13 +11,17 @@ async def create_cliente(cliente: Cliente):
     result = await db.clientes.insert_one(cliente.dict(by_alias=True))
     return result.inserted_id
 
-async def get_clientes(q: str | None = None):
+async def get_clientes(q: str | None = None, cpf: str | None = None):
+    # Build a query that supports optional name (q) and CPF (cpf) filters
+    query = {}
     if q:
-        # case-insensitive search on nome
         regex = {"$regex": q, "$options": "i"}
-        cursor = db.clientes.find({"nome": regex})
-    else:
-        cursor = db.clientes.find()
+        query["nome"] = regex
+    if cpf:
+        # CPF filter: treat as substring match (case-insensitive to be safe)
+        cpf_regex = {"$regex": cpf, "$options": "i"}
+        query["cpf"] = cpf_regex
+    cursor = db.clientes.find(query)
     return await cursor.to_list(None)
 
 async def get_cliente_by_id(cliente_id: str):

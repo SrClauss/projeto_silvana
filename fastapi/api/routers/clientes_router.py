@@ -14,9 +14,9 @@ async def create_cliente_endpoint(cliente: Cliente):
     return {"id": cliente_id}
 
 @router.get("/", dependencies=[Depends(get_current_user)])
-async def get_clientes_endpoint(q: str | None = None):
-    """Optional query param `q` filters clientes by name (case-insensitive)."""
-    return await get_clientes(q)
+async def get_clientes_endpoint(q: str | None = None, cpf: str | None = None):
+    """Optional query params `q` filters clientes by name, `cpf` filters by cpf (both case-insensitive)."""
+    return await get_clientes(q, cpf)
 
 @router.get("/{cliente_id}", dependencies=[Depends(get_current_user)])
 async def get_cliente(cliente_id: str):
