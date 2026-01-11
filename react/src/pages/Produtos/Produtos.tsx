@@ -20,6 +20,7 @@ import {
   Chip,
   CircularProgress,
   InputAdornment,
+  IconButton,
 } from '@mui/material';
 import { Add, Search, Visibility, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
@@ -70,6 +71,7 @@ const Produtos: React.FC = () => {
     preco_custo: 0.0,
     preco_venda: 0.0,
     tags: [] as Tag[],
+    itens: [] as Item[],
   });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [viewProduto, setViewProduto] = useState<Produto | null>(null);
@@ -210,7 +212,7 @@ const Produtos: React.FC = () => {
   const handleOpenModal = async () => {
     setEditingId(null);
     setCodigoError(null);
-    setNewProduto({ codigo_interno: '', codigo_externo: '', descricao: '', marca_fornecedor: '', sessao: '', preco_custo: 0, preco_venda: 0, tags: [] });
+    setNewProduto({ codigo_interno: '', codigo_externo: '', descricao: '', marca_fornecedor: '', sessao: '', preco_custo: 0, preco_venda: 0, tags: [], itens: [] });
     setOpenModal(true);
   };
 
@@ -228,6 +230,7 @@ const Produtos: React.FC = () => {
       preco_custo: (produto.preco_custo || 0) / 100,
       preco_venda: (produto.preco_venda || 0) / 100,
       tags: produto.tags || [],
+      itens: produto.itens || [],
     });
     setOpenModal(true);
   };
@@ -258,7 +261,7 @@ const Produtos: React.FC = () => {
         descricao: newProduto.descricao,
         marca_fornecedor: newProduto.marca_fornecedor,
         sessao: newProduto.sessao,
-        itens: [],
+        itens: newProduto.itens,
         saidas: [],
         entradas: [],
         em_condicional: 0,
@@ -287,6 +290,7 @@ const Produtos: React.FC = () => {
         preco_custo: 0,
         preco_venda: 0,
         tags: [],
+        itens: [],
       });
       await loadProdutos();
     } catch (error) {

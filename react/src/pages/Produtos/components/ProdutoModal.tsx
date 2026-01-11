@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Box,
+  Typography,
   TextField,
   Button,
   Dialog,
@@ -12,10 +13,10 @@ import {
   CircularProgress,
   IconButton,
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
+import { Add, Delete } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
-import type { Tag } from '../../../types';
+import type { Tag, Item } from '../../../types';
 import MarcaFornecedorModal from '../../../components/MarcaFornecedorModal';
 import type { MarcaFornecedor } from '../../../types';
 
@@ -32,6 +33,7 @@ interface ProdutoModalProps {
     preco_custo: number;
     preco_venda: number;
     tags: Tag[];
+    itens: Item[];
   };
   setNewProduto: React.Dispatch<React.SetStateAction<{
     codigo_interno: string;
@@ -42,6 +44,7 @@ interface ProdutoModalProps {
     preco_custo: number;
     preco_venda: number;
     tags: Tag[];
+    itens: Item[];
   }>>;
   codigoError: string | null;
   setCodigoError: React.Dispatch<React.SetStateAction<string | null>>;
@@ -77,6 +80,32 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   const [marcaOptions, setMarcaOptions] = React.useState<MarcaFornecedor[]>([]);
   const [marcaLoading, setMarcaLoading] = React.useState(false);
   const [marcaInputValue, setMarcaInputValue] = React.useState('');
+  const [tempItens, setTempItens] = React.useState<Item[]>([]);
+
+  React.useEffect(() => {
+    setTempItens(newProduto.itens);
+  }, [newProduto.itens, open]);
+
+  const addItem = () => {
+    setTempItens([...tempItens, { quantity: 1, acquisition_date: new Date().toISOString().split('T')[0] }]);
+  };
+
+  const removeItem = (index: number) => {
+    setTempItens(tempItens.filter((_, i) => i !== index));
+  };
+
+  const updateItem = (index: number, field: keyof Item, value: string | number) => {
+    setTempItens(tempItens.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  };
+
+  const handleAddProdutoLocal = async () => {
+    let finalItens = tempItens;
+    if (finalItens.length === 0) {
+      finalItens = [{ quantity: 0, acquisition_date: new Date().toISOString().split('T')[0] }];
+    }
+    setNewProduto({ ...newProduto, itens: finalItens });
+    await handleAddProduto();
+  };
 
   const searchMarcas = async (q: string) => {
     setMarcaLoading(true);
@@ -273,11 +302,39 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
             )}
           </Box>
         </Box>
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="h6">Itens no Estoque</Typography>
+          {tempItens.map((item, index) => (
+            <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
+              <TextField
+                label="Quantidade"
+                type="number"
+                value={item.quantity}
+                onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                size="small"
+              />
+              <TextField
+                label="Data de Aquisição"
+                type="date"
+                value={item.acquisition_date}
+                onChange={(e) => updateItem(index, 'acquisition_date', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+              />
+              <IconButton onClick={() => removeItem(index)} size="small">
+                <Delete />
+              </IconButton>
+            </Box>
+          ))}
+          <Button onClick={addItem} size="small" sx={{ mt: 1 }}>
+            Adicionar Item
+          </Button>
+        </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2, flexDirection: 'column', gap: 1 }}>
         <Button
           size="small"
-          onClick={handleAddProduto}
+          onClick={handleAddProdutoLocal}
           variant="contained"
           sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, width: '100%' }}
           disabled={addingProduto}
