@@ -45,7 +45,9 @@ const Clientes: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
+  const [nameFilter, setNameFilter] = useState('');
   const debounceRef = useRef<number | null>(null);
+  const nameDebounceRef = useRef<number | null>(null);
 
   const [openModal, setOpenModal] = useState(false);
   const [loadingClientes, setLoadingClientes] = useState(false);
@@ -78,14 +80,30 @@ const Clientes: React.FC = () => {
     }, 300);
   }, [searchQuery]);
 
+  // Debounce name filter and call backend
+  useEffect(() => {
+    if (nameDebounceRef.current) window.clearTimeout(nameDebounceRef.current);
+    nameDebounceRef.current = window.setTimeout(() => {
+      loadClientes(nameFilter);
+    }, 300) as unknown as number;
+    return () => {
+      if (nameDebounceRef.current) window.clearTimeout(nameDebounceRef.current);
+    };
+  }, [nameFilter]);
+
   const loadClientes = async (q?: string) => {
     setLoadingClientes(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
+      let res;
+      if (q && q.trim()) {
+        res = await axios.get(`/clientes/?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
+      } else {
+        res = await axios.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
+      }
       const clientes: Cliente[] = res.data;
       setClientes(clientes);
-      setFilteredClientes(q ? clientes.filter(c => c.nome.toLowerCase().includes(q.toLowerCase()) || c.cpf.includes(q)) : clientes);
+      setFilteredClientes(clientes);
     } catch (error) {
       console.error('Erro ao carregar clientes:', error);
       setFilteredClientes([]);
@@ -228,11 +246,14 @@ const Clientes: React.FC = () => {
 
           <TextField
             size="small"
-            label="Filtrar"
+            label="Filtrar por nome"
             variant="outlined"
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
             sx={{ minWidth: { sm: 160 }, width: { xs: '100%', sm: 'auto' } }}
-            disabled
           />
+
+        
 
           <Button
             size="small"
@@ -240,8 +261,7 @@ const Clientes: React.FC = () => {
             startIcon={<Add />}
             onClick={handleOpenModal}
             sx={{
-              bgcolor: theme.palette.secondary.main,
-              color: theme.palette.primary.main,
+         
               boxShadow: '0 8px 18px rgba(0,0,0,0.25)',
               borderRadius: '10px',
               px: 3,
