@@ -73,10 +73,31 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
 }) => {
   const theme = useTheme();
   const [marcaModalOpen, setMarcaModalOpen] = React.useState(false);
+  const [marcaOptions, setMarcaOptions] = React.useState<MarcaFornecedor[]>([]);
+  const [marcaLoading, setMarcaLoading] = React.useState(false);
+  const [marcaInputValue, setMarcaInputValue] = React.useState('');
+
+  const searchMarcas = async (q: string) => {
+    setMarcaLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('/marcas-fornecedores/', { headers: { Authorization: `Bearer ${token}` } });
+      const list: MarcaFornecedor[] = res.data;
+      const filtered = q ? list.filter(m => (m.nome || '').toLowerCase().includes(q.toLowerCase()) || (m.fornecedor || '').toLowerCase().includes(q.toLowerCase())) : list;
+      setMarcaOptions(filtered);
+    } catch (e) {
+      console.error('Erro ao buscar marcas/fornecedores:', e);
+      setMarcaOptions([]);
+    } finally {
+      setMarcaLoading(false);
+    }
+  };
 
   const handleSaveMarca = (marca: MarcaFornecedor) => {
     // Atualizar o campo marca_fornecedor com o nome da marca
     setNewProduto({ ...newProduto, marca_fornecedor: marca.nome });
+    // adicionar a lista local de options
+    setMarcaOptions(prev => [marca, ...prev.filter(m => m._id !== marca._id)]);
   };
 
   return (
@@ -111,12 +132,43 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
             onChange={(e) => setNewProduto({ ...newProduto, descricao: e.target.value })}
             fullWidth
           />
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <TextField
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Autocomplete
               size="small"
-              label="Marca/Fornecedor"
-              value={newProduto.marca_fornecedor}
-              onChange={(e) => setNewProduto({ ...newProduto, marca_fornecedor: e.target.value })}
+              options={marcaOptions}
+              getOptionLabel={(option) => typeof option === 'string' ? option : option.nome}
+              value={marcaOptions.find(m => m.nome === newProduto.marca_fornecedor) ?? (newProduto.marca_fornecedor || null)}
+              onChange={(_e, value) => {
+                if (!value) {
+                  setNewProduto({ ...newProduto, marca_fornecedor: '' });
+                  return;
+                }
+                if (typeof value === 'string') setNewProduto({ ...newProduto, marca_fornecedor: value });
+                else setNewProduto({ ...newProduto, marca_fornecedor: value.nome });
+              }}
+              inputValue={marcaInputValue}
+              onInputChange={(_e, v) => { setMarcaInputValue(v); searchMarcas(v); }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="Marca/Fornecedor"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {marcaLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              onOpen={() => searchMarcas('')}
+              filterOptions={(options, { inputValue }) =>
+                options.filter((o) => typeof o === 'string' ? o.toLowerCase().includes(inputValue.toLowerCase()) : o.nome.toLowerCase().includes(inputValue.toLowerCase()) || o.fornecedor.toLowerCase().includes(inputValue.toLowerCase()))
+              }
+              freeSolo
               fullWidth
             />
             <IconButton onClick={() => setMarcaModalOpen(true)} sx={{ color: theme.palette.secondary.main }}>
