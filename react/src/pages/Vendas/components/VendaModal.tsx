@@ -85,7 +85,7 @@ function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao
               label="Quantidade"
               type="number"
               value={formData.quantidade}
-              onChange={(e) => handleChange('quantidade', parseInt(e.target.value))}
+              onChange={(e) => handleChange('quantidade', Math.max(1, parseInt(e.target.value) || 1))}
               required
               inputProps={{ min: 1 }}
             />
@@ -100,7 +100,7 @@ function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao
               label="Valor Total (opcional, em centavos)"
               type="number"
               value={formData.valor_total}
-              onChange={(e) => handleChange('valor_total', parseInt(e.target.value))}
+              onChange={(e) => handleChange('valor_total', parseInt(e.target.value) || 0)}
               inputProps={{ min: 0 }}
             />
 

@@ -257,6 +257,10 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
     vendas_criadas = []
     devolucoes_processadas = []
     
+    # Conta ocorrências de códigos devolvidos para melhor performance
+    from collections import Counter
+    codigos_devolvidos_count = Counter(produtos_devolvidos_codigos)
+    
     # Para cada produto na condicional
     for prod_qty in condicional.get("produtos", []):
         produto_id = prod_qty["produto_id"]
@@ -269,8 +273,8 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
         
         codigo_interno = produto.get("codigo_interno")
         
-        # Conta quantos deste produto foram devolvidos (por código interno)
-        quantidade_devolvida = produtos_devolvidos_codigos.count(codigo_interno)
+        # Conta quantos deste produto foram devolvidos (usando Counter)
+        quantidade_devolvida = codigos_devolvidos_count.get(codigo_interno, 0)
         quantidade_vendida = quantidade_enviada - quantidade_devolvida
         
         # Encontra itens deste condicional no produto

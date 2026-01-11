@@ -54,19 +54,21 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
     itens_atualizados = list(produto.get("itens", []))
     
     # Processa remoção FIFO
+    items_to_remove = []
     for item in itens_ordenados:
         if quantidade_restante <= 0:
             break
         
-        # Encontra o índice do item na lista original
-        idx = next(
-            (i for i, it in enumerate(itens_atualizados) 
-             if it.get("acquisition_date") == item.get("acquisition_date") and
+        # Encontra o índice do item na lista original usando múltiplos critérios
+        idx = None
+        for i, it in enumerate(itens_atualizados):
+            if (it.get("acquisition_date") == item.get("acquisition_date") and
                 it.get("quantity") == item.get("quantity") and
                 not it.get("condicional_fornecedor_id") and
-                not it.get("condicional_cliente_id")),
-            None
-        )
+                not it.get("condicional_cliente_id") and
+                i not in items_to_remove):
+                idx = i
+                break
         
         if idx is None:
             continue
@@ -76,11 +78,15 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
         if item_quantity <= quantidade_restante:
             # Remove o item completamente
             quantidade_restante -= item_quantity
-            itens_atualizados.pop(idx)
+            items_to_remove.append(idx)
         else:
             # Diminui a quantidade do item
             itens_atualizados[idx]["quantity"] = item_quantity - quantidade_restante
             quantidade_restante = 0
+    
+    # Remove items marcados para remoção (em ordem reversa para não afetar índices)
+    for idx in sorted(items_to_remove, reverse=True):
+        itens_atualizados.pop(idx)
     
     # Atualiza o produto com os itens modificados
     await db.produtos.update_one(

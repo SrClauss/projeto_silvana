@@ -266,7 +266,7 @@ function CondicionaisFornecedor() {
               label="Quantidade"
               type="number"
               value={devolverForm.quantidade}
-              onChange={(e) => setDevolverForm({ ...devolverForm, quantidade: parseInt(e.target.value) })}
+              onChange={(e) => setDevolverForm({ ...devolverForm, quantidade: Math.max(1, parseInt(e.target.value) || 1) })}
               required
               inputProps={{ min: 1 }}
             />
