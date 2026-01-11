@@ -147,8 +147,8 @@ const MarcasFornecedores: React.FC = () => {
           <>
             <TableContainer id="marcas-table-container" sx={{ width: '100%' }}>
               <Table id="marcas-table" sx={{ tableLayout: 'auto' }}>
-                <TableHead id="marcas-table-head">
-                  <TableRow sx={{ bgcolor: theme.palette.primary.main }}>
+                <TableHead id="marcas-table-head" sx={{ bgcolor: theme.palette.primary.main }}>
+                  <TableRow>
                     <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Nome</TableCell>
                     <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Fornecedor</TableCell>
                     <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Ações</TableCell>

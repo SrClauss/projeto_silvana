@@ -236,12 +236,12 @@ const Clientes: React.FC = () => {
           <>
             <TableContainer>
               <Table>
-                <TableHead>
+                <TableHead sx={{ bgcolor: theme.palette.primary.main }}>
                   <TableRow>
-                    <TableCell>Nome</TableCell>
-                    <TableCell>Telefone</TableCell>
-                    <TableCell>CPF</TableCell>
-                    <TableCell>Ações</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 'bold' }}>Nome</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 'bold' }}>Telefone</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 'bold' }}>CPF</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 'bold' }}>Ações</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

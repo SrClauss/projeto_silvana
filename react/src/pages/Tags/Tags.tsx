@@ -149,10 +149,10 @@ const TagsPage: React.FC = () => {
           <>
             <TableContainer>
               <Table>
-                <TableHead>
+                <TableHead sx={{ bgcolor: theme.palette.primary.main }}>
                   <TableRow>
-                    <TableCell>Descrição</TableCell>
-                    <TableCell>Ações</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Descrição</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Ações</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
