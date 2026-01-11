@@ -103,19 +103,19 @@ const Produtos: React.FC = () => {
 
       if (query && query.trim() !== '' && tagsParam && tagsParam.length > 0) {
         // Search first, then filter by tags (server-side endpoint for combined filter not implemented)
-        const res = await axios.get(`http://localhost:8000/produtos/search/?query=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.get(`/produtos/search/?query=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token}` } });
         prods = res.data;
         const tagIds = tagsParam.map(t => t._id);
         prods = prods.filter(p => p.tags && p.tags.some(t => tagIds.includes(t._id)));
       } else if (query && query.trim() !== '') {
-        const res = await axios.get(`http://localhost:8000/produtos/search/?query=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.get(`/produtos/search/?query=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token}` } });
         prods = res.data;
       } else if (tagsParam && tagsParam.length > 0) {
         const tag_ids = tagsParam.map(t => t._id).join(',');
-        const res = await axios.get(`http://localhost:8000/produtos/by-tags/?tag_ids=${encodeURIComponent(tag_ids)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.get(`/produtos/by-tags/?tag_ids=${encodeURIComponent(tag_ids)}`, { headers: { Authorization: `Bearer ${token}` } });
         prods = res.data;
       } else {
-        const res = await axios.get('http://localhost:8000/produtos/', { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.get('/produtos/', { headers: { Authorization: `Bearer ${token}` } });
         prods = res.data;
       }
 
@@ -134,7 +134,7 @@ const Produtos: React.FC = () => {
     setLoadingTags(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:8000/produtos/tags/', {
+      const response = await axios.get('/produtos/tags/', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTags(response.data);
@@ -149,7 +149,7 @@ const Produtos: React.FC = () => {
   const fetchProdutoById = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`http://localhost:8000/produtos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get(`/produtos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       return res.data as Produto;
     } catch (error) {
       console.error('Erro ao buscar produto:', error);
@@ -160,7 +160,7 @@ const Produtos: React.FC = () => {
     setLoadingTags(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`http://localhost:8000/produtos/tags/search/?q=${encodeURIComponent(q)}`, {
+      const response = await axios.get(`/produtos/tags/search/?q=${encodeURIComponent(q)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTagOptions(response.data);
@@ -174,7 +174,7 @@ const Produtos: React.FC = () => {
   const createTag = async (descricao: string) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:8000/produtos/tags/', { descricao }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.post('/produtos/tags/', { descricao }, { headers: { Authorization: `Bearer ${token}` } });
       const created = res.data;
       // update local caches
       setTags((t) => [...t, created]);
@@ -198,7 +198,7 @@ const Produtos: React.FC = () => {
   const fetchLastCodigoSuggestion = async () => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:8000/produtos/codigo-interno/last', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get('/produtos/codigo-interno/last', { headers: { Authorization: `Bearer ${token}` } });
       if (res.data && res.data.suggested) {
         setNewProduto((p) => ({ ...p, codigo_interno: res.data.suggested }));
       }
@@ -242,7 +242,7 @@ const Produtos: React.FC = () => {
     if (!window.confirm('Confirma exclusão deste produto?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:8000/produtos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete(`/produtos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       await loadProdutos();
     } catch (error) {
       console.error('Erro ao deletar produto:', error);
@@ -269,9 +269,9 @@ const Produtos: React.FC = () => {
       };
 
       if (editingId) {
-        await axios.put(`http://localhost:8000/produtos/${editingId}`, produtoData, { headers: { Authorization: `Bearer ${token}` } });
+        await axios.put(`/produtos/${editingId}`, produtoData, { headers: { Authorization: `Bearer ${token}` } });
       } else {
-        await axios.post('http://localhost:8000/produtos/', produtoData, {
+        await axios.post('/produtos/', produtoData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }

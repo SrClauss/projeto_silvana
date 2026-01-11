@@ -17,7 +17,7 @@ const LoginForm = () => {
     setStatus({ text: 'A autenticar credenciais...', color: '#4a443f' })
     try {
       // POST as query params are expected by backend; we'll send as body JSON and handle when backend updates.
-      const res = await axios.post('http://localhost:8000/auth/login?email=' + encodeURIComponent(email) + '&password=' + encodeURIComponent(password))
+      const res = await axios.post('/auth/login?email=' + encodeURIComponent(email) + '&password=' + encodeURIComponent(password))
       const token = res.data.access_token
       if (token) {
         setStatus({ text: 'Autenticado com sucesso', color: '#157F3A' })

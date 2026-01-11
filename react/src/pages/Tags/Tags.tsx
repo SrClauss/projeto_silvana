@@ -14,7 +14,7 @@ const TagsPage: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('http://localhost:8000/produtos/tags/', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.get('/produtos/tags/', { headers: { Authorization: `Bearer ${token}` } });
       setTags(res.data);
     } catch (e) {
       console.error(e);
@@ -30,7 +30,7 @@ const TagsPage: React.FC = () => {
     setCreating(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('http://localhost:8000/produtos/tags/', { descricao: newTag.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await axios.post('/produtos/tags/', { descricao: newTag.trim() }, { headers: { Authorization: `Bearer ${token}` } });
       setTags((t) => [...t, res.data]);
       setNewTag('');
     } catch (e) {
@@ -42,7 +42,7 @@ const TagsPage: React.FC = () => {
     if (!window.confirm('Confirma exclusão da tag?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:8000/produtos/tags/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await axios.delete(`/produtos/tags/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       setTags((t) => t.filter(x => x._id !== id));
     } catch (e) { console.error(e); }
   };

@@ -50,7 +50,7 @@ const MarcasFornecedores: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:8000/marcas-fornecedores/', { headers: { Authorization: `Bearer ${token}` } });
+      const response = await axios.get('/marcas-fornecedores/', { headers: { Authorization: `Bearer ${token}` } });
       setMarcas(response.data);
     } catch (error) {
       console.error('Erro ao carregar marcas/fornecedores:', error);
@@ -76,7 +76,7 @@ const MarcasFornecedores: React.FC = () => {
     if (window.confirm('Tem certeza que deseja excluir esta marca/fornecedor?')) {
       try {
         const token = localStorage.getItem('token');
-        await axios.delete(`http://localhost:8000/marcas-fornecedores/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        await axios.delete(`/marcas-fornecedores/${id}`, { headers: { Authorization: `Bearer ${token}` } });
         setMarcas(marcas.filter(m => m._id !== id));
       } catch (error) {
         console.error('Erro ao excluir marca/fornecedor:', error);
