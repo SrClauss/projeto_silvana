@@ -1,44 +1,62 @@
 import React, { useState } from 'react';
-import { Box, IconButton } from '@mui/material';
+import { Box, Drawer, AppBar, Toolbar, IconButton, Paper } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 import SidebarContent from './SidebarContent';
+import { customTheme } from '../theme';
+interface LoggedLayoutProps {
+  children: React.ReactNode;
+  activePage: string;  // Adicione esta linha
+}
 
-// Simples: dois containers — conteúdo principal e sidebar à direita. Menu para mobile.
-const LoggedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [open, setOpen] = useState(false);
+const LoggedLayout: React.FC<LoggedLayoutProps> = ({ children }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const sideWidth = collapsed ? 80 : 260;
+
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
   return (
-    <Box id="logged-layout-root" sx={{ display: 'flex', minHeight: '100vh', flexDirection: 'row' }}>
-      {/* Conteúdo principal */}
-      <Box id="main-area" sx={{ flex: 1, p: { xs: 2, md: 4 } }}>
-        {/* botão de menu (apenas mobile) */}
-        <Box sx={{ display: { md: 'none' }, mb: 2 }}>
-          <IconButton aria-label="menu" onClick={() => setOpen(!open)}>
-            <MenuIcon />
-          </IconButton>
-        </Box>
-
-        {children}
+    <Box id="logged-layout-root" sx={{ display: 'flex', minHeight: '100vh' }}>
+      {/* Sidebar (fixed on md+) so it doesn't cause layout shift when toggling) */}
+      <Box id="sidebar-box" sx={{ width: sideWidth, flexShrink: 0, display: { xs: 'none', md: 'block' }, position: { md: 'fixed' }, top: 0, left: 0, bottom: 0, zIndex: (theme) => theme.zIndex.drawer }}>
+        <Paper id="sidebar-paper" sx={{ height: '100%', bgcolor: '#3D2B1F', borderRadius: 0, border: 'none', width: sideWidth, display: 'flex', flexDirection: 'column', transition: 'width 200ms', overflow: 'auto' }}>
+          <SidebarContent isCollapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
+        </Paper>
       </Box>
 
-      {/* Sidebar fixa à direita (mostra/oculta no mobile) */}
-      <Box
-        component="aside"
-        id="sidebar"
-        sx={{
-          width: 260,
-          flexShrink: 0,
-          display: { xs: open ? 'block' : 'none', md: 'block' },
-          position: { xs: 'fixed', md: 'static' },
-          right: 0,
-          top: 0,
-          height: { xs: '100vh', md: 'auto' },
-          bgcolor: '#3D2B1F',
-          zIndex: 1200,
-          overflow: 'auto'
-        }}
+      {/* Mobile drawer */}
+      <Drawer
+        id="mobile-drawer"
+        variant="temporary"
+        open={mobileOpen}
+        onClose={handleDrawerToggle}
+        ModalProps={{ keepMounted: true }}
+        sx={{ display: { xs: 'block', md: 'none' },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 260, backgroundColor: customTheme.palette.opacicityBackground} }}
       >
-        <SidebarContent onNavigate={() => setOpen(false)} />
+        <SidebarContent onNavigate={() => setMobileOpen(false)} />
+      </Drawer>
+
+      {/* AppBar for mobile */}
+      <AppBar id="mobile-appbar" position="fixed" color="transparent" elevation={0} sx={{ display: { md: 'none' } }}>
+        <Toolbar>
+          <IconButton id="mobile-menu-button" edge="start" color="inherit" aria-label="menu" onClick={handleDrawerToggle} sx={{ mr: 2 }}>
+            <MenuIcon />
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+
+      {/* Main content: document handles scrolling; content fills area next to the fixed sidebar */}
+      <Box id="main-wrapper" sx={{ 
+        ml: { md: `${sideWidth}px` },
+        pt: { xs: '64px', md: 0 },
+        width: { xs: '100%', md: `calc(100% - ${sideWidth}px)` },
+        flexGrow: 1
+      }}>
+        {/* Conteúdo alinhado à esquerda e ocupando toda a largura disponível ao lado da sidebar */}
+        <Box id="main-content" sx={{ width: '100%', height: '100%' }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );
