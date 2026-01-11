@@ -21,7 +21,7 @@ import {
   CircularProgress,
   InputAdornment,
 } from '@mui/material';
-import { Add, Search } from '@mui/icons-material';
+import { Add, Search, Visibility, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import type { Tag, Produto, Item, Saida, Entrada} from '../../types';
@@ -428,9 +428,15 @@ const Produtos: React.FC = () => {
                         <TableCell>{produto.codigo_interno}</TableCell>
                         <TableCell>{produto.descricao}</TableCell>
                         <TableCell>
-                          <Button size="small" onClick={() => handleView(produto._id)} sx={{ mr: 1 }}>Ver</Button>
-                          <Button size="small" onClick={() => handleEdit(produto._id)} sx={{ mr: 1 }}>Editar</Button>
-                          <Button size="small" color="error" onClick={() => handleDelete(produto._id)}>Deletar</Button>
+                          <IconButton size="small" onClick={() => handleView(produto._id)} aria-label="ver" sx={{ color: theme.palette.primary.main, mr: 1 }}>
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleEdit(produto._id)} aria-label="editar" sx={{ color: theme.palette.primary.main, mr: 1 }}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDelete(produto._id)} aria-label="deletar" sx={{ color: theme.palette.error?.main || 'red' }}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
                         </TableCell>
                       </TableRow>
                     ))
