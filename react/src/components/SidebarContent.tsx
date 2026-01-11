@@ -1,5 +1,5 @@
 import { Box, Typography, List, ListItem, ListItemIcon, ListItemText, ListItemButton, Button } from '@mui/material';
-import { Inventory, Settings, Logout, Dashboard as DashboardIcon, Timeline, Label, ChevronLeft, ChevronRight, ShoppingBag, Business } from '@mui/icons-material';
+import { Inventory, Settings, Logout, Dashboard as DashboardIcon, Timeline, Label, ChevronLeft, ChevronRight, ShoppingBag, Business, SwapHoriz, PersonPin } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import theme from '../theme';
 
@@ -13,6 +13,8 @@ const SidebarContent = ({ onNavigate, isCollapsed, onToggleCollapse }: { onNavig
     { label: 'Marcas/Fornecedores', icon: <Business />, path: '/marcas-fornecedores' },
     { label: 'Tags', icon: <Label />, path: '/tags' },
     { label: 'Vendas', icon: <Timeline />, path: '/vendas' },
+    { label: 'Cond. Fornecedor', icon: <SwapHoriz />, path: '/condicionais-fornecedor' },
+    { label: 'Cond. Cliente', icon: <PersonPin />, path: '/condicionais-cliente' },
     { label: 'Estoque', icon: <Inventory />, path: '/estoque' },
     { label: 'Ajustes', icon: <Settings />, path: '/ajustes' }
   ];

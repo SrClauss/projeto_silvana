@@ -1,12 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from ..models.condicional_fornecedor import CondicionalFornecedor
 from ..database.condicional_fornecedor_db import (
     create_condicional_fornecedor, get_condicional_fornecedores, get_condicional_fornecedor_by_id,
-    update_condicional_fornecedor, delete_condicional_fornecedor
+    update_condicional_fornecedor, delete_condicional_fornecedor,
+    adicionar_produto_condicional_fornecedor, devolver_itens_condicional_fornecedor,
+    get_status_devolucao_condicional_fornecedor
 )
 from ..routers.auth import get_current_user
 
 router = APIRouter()
+
+class AdicionarProdutoRequest(BaseModel):
+    produto_id: str
+    quantidade: int
+
+class DevolverItensRequest(BaseModel):
+    produto_id: str
+    quantidade: int
 
 @router.post("/", dependencies=[Depends(get_current_user)])
 async def create_condicional_fornecedor_endpoint(condicional: CondicionalFornecedor):
@@ -37,3 +48,45 @@ async def delete_condicional_fornecedor_endpoint(condicional_id: str):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Condicional Fornecedor not found")
     return {"message": "Condicional Fornecedor deleted"}
+
+@router.post("/{condicional_id}/adicionar-produto", dependencies=[Depends(get_current_user)])
+async def adicionar_produto_endpoint(condicional_id: str, request: AdicionarProdutoRequest):
+    """
+    Adiciona um produto ao condicional de fornecedor.
+    Cria itens no produto marcados com condicional_fornecedor_id.
+    """
+    result = await adicionar_produto_condicional_fornecedor(
+        condicional_id, request.produto_id, request.quantidade
+    )
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+@router.post("/{condicional_id}/devolver-itens", dependencies=[Depends(get_current_user)])
+async def devolver_itens_endpoint(condicional_id: str, request: DevolverItensRequest):
+    """
+    Devolve itens de um condicional de fornecedor.
+    Remove os itens e cria uma saída de devolução.
+    """
+    result = await devolver_itens_condicional_fornecedor(
+        condicional_id, request.produto_id, request.quantidade
+    )
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+@router.get("/{condicional_id}/status-devolucao", dependencies=[Depends(get_current_user)])
+async def get_status_devolucao_endpoint(condicional_id: str, produto_id: str = None):
+    """
+    Retorna o status de devolução mostrando quantos itens ainda podem ser devolvidos.
+    """
+    result = await get_status_devolucao_condicional_fornecedor(condicional_id, produto_id)
+    
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail=result["error"])
+    
+    return result

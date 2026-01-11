@@ -13,6 +13,8 @@ export interface Tag {
 export interface Item {
   quantity: number;
   acquisition_date: string;
+  condicional_fornecedor_id?: string;
+  condicional_cliente_id?: string;
 }
 
 export interface Entrada {
