@@ -131,7 +131,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth sx={{ maxHeight: '80vh' }}>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { height: '90vh' } }}>
       <DialogTitle sx={{ bgcolor: theme.palette.primary.main, color: theme.palette.secondary.main }}>
         {editingId ? 'Editar Produto' : 'Adicionar Produto'}
       </DialogTitle>
