@@ -99,8 +99,9 @@ async def get_produto_com_tudo(produto_id: str):
 
 # Filtro por tags
 async def get_produtos_by_tags(tag_ids: list):
+    # Require products to have all specified tags (intersection)
     pipeline = [
-        {"$match": {"tags._id": {"$in": tag_ids}}},
+        {"$match": {"tags._id": {"$all": tag_ids}}},
         {"$lookup": {"from": "tags", "localField": "tags._id", "foreignField": "_id", "as": "tags_completas"}},
         {"$addFields": {
             "tags": {
