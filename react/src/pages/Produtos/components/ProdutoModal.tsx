@@ -14,6 +14,7 @@ import {
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
+import axios from 'axios';
 import type { Tag } from '../../../types';
 import MarcaFornecedorModal from '../../../components/MarcaFornecedorModal';
 import type { MarcaFornecedor } from '../../../types';
