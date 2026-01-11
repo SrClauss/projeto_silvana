@@ -14,15 +14,24 @@ async def create_produto(produto: Produto):
     # normalize tags: ensure we link existing tags or create as needed
     normalized_tags = []
     for t in produto.tags:
+        # Case: already a dict with _id
         if isinstance(t, dict) and t.get('_id'):
             tag_doc = await get_tag_by_id(t.get('_id'))
             if tag_doc:
                 normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
                 continue
-        descricao = t.get('descricao') if isinstance(t, dict) else t
+        # Extract descricao robustly whether t is dict, str, or object with attribute
+        descricao = None
+        if isinstance(t, dict):
+            descricao = t.get('descricao')
+        elif isinstance(t, str):
+            descricao = t
+        else:
+            descricao = getattr(t, 'descricao', None)
         if descricao:
             tag_doc = await get_or_create_tag_by_descricao(descricao)
-            normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
+            if tag_doc:
+                normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
     doc = produto.dict(by_alias=True)
     doc['tags'] = normalized_tags
     doc['created_at'] = datetime.utcnow()
@@ -45,10 +54,17 @@ async def update_produto(produto_id: str, update_data: dict):
                 if tag_doc:
                     normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
                     continue
-            descricao = t.get('descricao') if isinstance(t, dict) else t
+            descricao = None
+            if isinstance(t, dict):
+                descricao = t.get('descricao')
+            elif isinstance(t, str):
+                descricao = t
+            else:
+                descricao = getattr(t, 'descricao', None)
             if descricao:
                 tag_doc = await get_or_create_tag_by_descricao(descricao)
-                normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
+                if tag_doc:
+                    normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
         update_data['tags'] = normalized_tags
     update_data['updated_at'] = datetime.utcnow()
     return await db.produtos.find_one_and_update(
