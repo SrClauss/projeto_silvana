@@ -209,28 +209,40 @@ const Clientes: React.FC = () => {
     <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
       <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Clientes</Typography>
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-          <TextField
-            label="Buscar clientes"
-            variant="outlined"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  {loadingClientes ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
-                </InputAdornment>
-              ),
-            }}
-            fullWidth
-          />
-          <Button size="small" variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}>
-            Adicionar Cliente
-          </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ flex: 1 }}>
+            <Paper sx={{ p: 1, borderRadius: 2 }}>
+              <TextField
+                label="Buscar clientes"
+                variant="outlined"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      {loadingClientes ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
+                    </InputAdornment>
+                  ),
+                }}
+                fullWidth
+              />
+            </Paper>
+          </Box>
+
+          <Box>
+            <Paper sx={{ p: 1, borderRadius: 2, display: 'flex', alignItems: 'center' }}>
+              <Button size="small" variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, textTransform: 'uppercase', fontWeight: 700 }}>
+                Adicionar Cliente
+              </Button>
+            </Paper>
+          </Box>
         </Box>
+      </Paper>
+
+      <Paper sx={{ borderRadius: 2, maxWidth: '100%', p: 0 }}>
         {loadingClientes ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress />
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+            <CircularProgress sx={{ color: theme.palette.primary.main }} />
           </Box>
         ) : (
           <>
