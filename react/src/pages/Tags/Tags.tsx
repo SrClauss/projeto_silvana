@@ -119,9 +119,9 @@ const TagsPage: React.FC = () => {
   const paginatedTags = filteredTags.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>Tags</Typography>
-      <Paper sx={{ p: 2, mb: 2 }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
+      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Tags</Typography>
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
         <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
           <TextField
             label="Buscar tags"
@@ -131,13 +131,13 @@ const TagsPage: React.FC = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  {loading ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
                 </InputAdornment>
               ),
             }}
             fullWidth
           />
-          <Button variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }}>
+          <Button size="small" variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}>
             Adicionar Tag
           </Button>
         </Box>
@@ -147,7 +147,7 @@ const TagsPage: React.FC = () => {
           </Box>
         ) : (
           <>
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table>
                 <TableHead sx={{ bgcolor: theme.palette.primary.main }}>
                   <TableRow>
@@ -186,7 +186,7 @@ const TagsPage: React.FC = () => {
               component="div"
               count={filteredTags.length}
               rowsPerPage={rowsPerPage}
-              page={page}
+              page={Math.min(page, Math.max(0, Math.ceil(filteredTags.length / rowsPerPage) - 1))}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
             />

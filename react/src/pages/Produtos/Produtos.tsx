@@ -399,6 +399,7 @@ const Produtos: React.FC = () => {
             variant="contained"
             startIcon={<Add />}
             onClick={handleOpenModal}
+            sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}
           >
             Adicionar Produto
           </Button>

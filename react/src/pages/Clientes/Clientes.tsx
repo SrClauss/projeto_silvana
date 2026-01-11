@@ -206,9 +206,9 @@ const Clientes: React.FC = () => {
   const paginatedClientes = filteredClientes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>Clientes</Typography>
-      <Paper sx={{ p: 2, mb: 2 }}>
+    <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
+      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Clientes</Typography>
+      <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
         <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
           <TextField
             label="Buscar clientes"
@@ -218,13 +218,13 @@ const Clientes: React.FC = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  {loadingClientes ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
                 </InputAdornment>
               ),
             }}
             fullWidth
           />
-          <Button variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }}>
+          <Button size="small" variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}>
             Adicionar Cliente
           </Button>
         </Box>
@@ -234,14 +234,14 @@ const Clientes: React.FC = () => {
           </Box>
         ) : (
           <>
-            <TableContainer>
+            <TableContainer sx={{ overflowX: 'auto' }}>
               <Table>
                 <TableHead sx={{ bgcolor: theme.palette.primary.main }}>
                   <TableRow>
-                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 'bold' }}>Nome</TableCell>
-                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 'bold' }}>Telefone</TableCell>
-                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 'bold' }}>CPF</TableCell>
-                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 'bold' }}>Ações</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Nome</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Telefone</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>CPF</TableCell>
+                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Ações</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -277,7 +277,7 @@ const Clientes: React.FC = () => {
               component="div"
               count={filteredClientes.length}
               rowsPerPage={rowsPerPage}
-              page={page}
+              page={Math.min(page, Math.max(0, Math.ceil(filteredClientes.length / rowsPerPage) - 1))}
               onPageChange={handleChangePage}
               onRowsPerPageChange={handleChangeRowsPerPage}
             />
