@@ -60,6 +60,24 @@ async def create_produto(produto: Produto):
         if entrada_doc:
             await db.produtos.update_one({"_id": produto_id}, {"$push": {"entradas": entrada_doc}})
 
+    # If explicit items were provided, create entradas for each item so stock is recorded in the entradas collection
+    if doc.get('itens'):
+        try:
+            from ..models.entradas import Entrada as EntradaModel
+            for itm in doc.get('itens', []):
+                qty = int(itm.get('quantity', 0)) if itm.get('quantity') is not None else 0
+                if qty <= 0:
+                    continue
+                entrada_obj = EntradaModel(produtos_id=produto_id, quantidade=qty, tipo='compra')
+                entrada_id = await create_entrada(entrada_obj)
+                entrada_doc = await get_entrada_by_id(entrada_id)
+                if entrada_doc:
+                    await db.produtos.update_one({"_id": produto_id}, {"$push": {"entradas": entrada_doc}})
+        except Exception:
+            # don't block creation if entradas fail; log
+            import traceback
+            traceback.print_exc()
+
     return produto_id
 
 async def get_produtos():
@@ -90,6 +108,25 @@ async def update_produto(produto_id: str, update_data: dict):
                 if tag_doc:
                     normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
         update_data['tags'] = normalized_tags
+
+    # If items are being updated, compute delta and create entrada for added quantity
+    if update_data.get('itens') is not None:
+        try:
+            current = await db.produtos.find_one({"_id": produto_id})
+            old_total = sum((i.get('quantity', 0) for i in current.get('itens', []))) if current else 0
+            new_total = sum((i.get('quantity', 0) for i in update_data.get('itens', [])))
+            delta = int(new_total) - int(old_total)
+            if delta > 0:
+                from ..models.entradas import Entrada as EntradaModel
+                entrada_obj = EntradaModel(produtos_id=produto_id, quantidade=delta, tipo='compra')
+                entrada_id = await create_entrada(entrada_obj)
+                entrada_doc = await get_entrada_by_id(entrada_id)
+                if entrada_doc:
+                    await db.produtos.update_one({"_id": produto_id}, {"$push": {"entradas": entrada_doc}})
+        except Exception:
+            import traceback
+            traceback.print_exc()
+
     update_data['updated_at'] = datetime.utcnow()
     return await db.produtos.find_one_and_update(
         {"_id": produto_id}, {"$set": update_data}, return_document=ReturnDocument.AFTER

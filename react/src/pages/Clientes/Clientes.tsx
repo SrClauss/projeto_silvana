@@ -37,6 +37,7 @@ interface ClienteData {
 }
 
 import ClienteModal from './components/ClienteModal';
+import ClienteViewModal from './components/ClienteViewModal';
 
 const Clientes: React.FC = () => {
   const theme = useTheme();
@@ -50,6 +51,8 @@ const Clientes: React.FC = () => {
   const nameDebounceRef = useRef<number | null>(null);
 
   const [openModal, setOpenModal] = useState(false);
+  const [openViewModal, setOpenViewModal] = useState(false);
+  const [viewCliente, setViewCliente] = useState<Cliente | null>(null);
   const [loadingClientes, setLoadingClientes] = useState(false);
   const [addingCliente, setAddingCliente] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -160,7 +163,8 @@ const Clientes: React.FC = () => {
   const handleView = async (id: string) => {
     const cliente = await fetchClienteById(id);
     if (!cliente) return;
-    // Implementar visualização se necessário
+    setViewCliente(cliente);
+    setOpenViewModal(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -227,7 +231,7 @@ const Clientes: React.FC = () => {
     <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
       <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Clientes</Typography>
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap:2 , alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, mb: 2 }}>
           <TextField
             size="small"
             label="Buscar por nome ou CPF"
@@ -264,6 +268,7 @@ const Clientes: React.FC = () => {
          
               boxShadow: '0 8px 18px rgba(0,0,0,0.25)',
               borderRadius: '10px',
+              width: { xs: '100%', sm: 'auto' },
               px: 3,
               py: 1.2,
               textTransform: 'uppercase',
@@ -340,6 +345,12 @@ const Clientes: React.FC = () => {
         setNewCliente={setNewCliente}
         addingCliente={addingCliente}
         handleAddCliente={handleAddCliente}
+      />
+
+      <ClienteViewModal
+        open={openViewModal}
+        onClose={() => { setOpenViewModal(false); setViewCliente(null); }}
+        cliente={viewCliente}
       />
     </Box>
   );

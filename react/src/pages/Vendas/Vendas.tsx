@@ -110,11 +110,13 @@ function Vendas() {
             O sistema utiliza lógica FIFO (First In, First Out) - os itens mais antigos são vendidos primeiro.
           </Typography>
 
-          <Box sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center', flexDirection: 'column' }}>
             {selectedClient ? (
               <>
+                <Box sx={{ display: 'flex',   width: '100%', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography>Cliente: <strong>{selectedClient.nome}</strong></Typography>
                 <Button size="small" onClick={() => setSelectedClient(null)}>Alterar/Remover</Button>
+                </Box>
               </>
             ) : (
               <Button variant="contained" size="small" onClick={() => setClientModalOpen(true)}>Selecionar Cliente</Button>

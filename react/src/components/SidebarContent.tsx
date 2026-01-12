@@ -13,18 +13,7 @@ const SidebarContent = ({ onNavigate, isCollapsed, onToggleCollapse }: { onNavig
   const draggingRef = useRef(false);
   const startYRef = useRef(0);
   const startScrollRef = useRef(0);
-
-  useEffect(() => {
-    // cleanup listeners on unmount
-    return () => {
-      document.removeEventListener('mousemove', handleDragging as any);
-      document.removeEventListener('mouseup', handleDragEnd as any);
-      document.removeEventListener('touchmove', handleTouchMove as any);
-      document.removeEventListener('touchend', handleTouchEnd as any);
-    };
-  }, []);
-
-  const handleDragging = (e: MouseEvent) => {
+    const handleDragging = (e: MouseEvent) => {
     if (!draggingRef.current) return;
     const deltaY = e.clientY - startYRef.current;
     if (scrollRef.current) scrollRef.current.scrollTop = startScrollRef.current + deltaY * 1.2;
@@ -32,8 +21,8 @@ const SidebarContent = ({ onNavigate, isCollapsed, onToggleCollapse }: { onNavig
 
   const handleDragEnd = () => {
     draggingRef.current = false;
-    document.removeEventListener('mousemove', handleDragging as any);
-    document.removeEventListener('mouseup', handleDragEnd as any);
+    document.removeEventListener('mousemove', handleDragging);
+    document.removeEventListener('mouseup', handleDragEnd);
   };
 
   const handleDragStart = (e: React.MouseEvent) => {
@@ -41,15 +30,15 @@ const SidebarContent = ({ onNavigate, isCollapsed, onToggleCollapse }: { onNavig
     draggingRef.current = true;
     startYRef.current = e.clientY;
     startScrollRef.current = scrollRef.current?.scrollTop ?? 0;
-    document.addEventListener('mousemove', handleDragging as any);
-    document.addEventListener('mouseup', handleDragEnd as any);
+    document.addEventListener('mousemove', handleDragging);
+    document.addEventListener('mouseup', handleDragEnd);
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     startYRef.current = e.touches[0].clientY;
     startScrollRef.current = scrollRef.current?.scrollTop ?? 0;
-    document.addEventListener('touchmove', handleTouchMove as any, { passive: false });
-    document.addEventListener('touchend', handleTouchEnd as any);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
   };
 
   const handleTouchMove = (e: TouchEvent) => {
@@ -59,8 +48,8 @@ const SidebarContent = ({ onNavigate, isCollapsed, onToggleCollapse }: { onNavig
   };
 
   const handleTouchEnd = () => {
-    document.removeEventListener('touchmove', handleTouchMove as any);
-    document.removeEventListener('touchend', handleTouchEnd as any);
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
   };
 
   const items = [
@@ -84,6 +73,17 @@ const SidebarContent = ({ onNavigate, isCollapsed, onToggleCollapse }: { onNavig
     navigate('/login');
   }
 
+  useEffect(() => {
+    // cleanup listeners on unmount
+    return () => {
+      document.removeEventListener('mousemove', handleDragging);
+      document.removeEventListener('mouseup', handleDragEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, []);
+
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <Box sx={{ p: 4, textAlign: 'center' }}>
@@ -99,7 +99,7 @@ const SidebarContent = ({ onNavigate, isCollapsed, onToggleCollapse }: { onNavig
         // hide scrollbar across browsers but keep scrolling functional
         '&::-webkit-scrollbar': { width: 0, height: 0 },
         scrollbarWidth: 'none', // firefox
-        '-ms-overflow-style': 'none' // ie 10+
+        msOverflowStyle: 'none' // ie 10+
       }}>
         <List sx={{ py: 1 }}>
           {items.map((item) => (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Typography,
@@ -8,7 +8,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  CircularProgress,
 } from '@mui/material';
+import axios from 'axios';
 import { useTheme } from '@mui/material/styles';
 import type { Endereco } from '../../../types';
 
@@ -42,6 +44,46 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
   handleAddCliente,
 }) => {
   const theme = useTheme();
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+
+  const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const rawCep = e.target.value || '';
+    const cep = rawCep.replace(/\D/g, '');
+    if (!cep) return;
+    if (cep.length !== 8) {
+      setCepError('CEP inválido');
+      return;
+    }
+
+    setLoadingCep(true);
+    setCepError(null);
+    try {
+      const res = await axios.get(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = res.data;
+      if (data.erro) {
+        setCepError('CEP não encontrado');
+      } else {
+        setNewCliente({
+          ...newCliente,
+          endereco: {
+            ...newCliente.endereco,
+            cep: data.cep || rawCep,
+            logradouro: data.logradouro || newCliente.endereco.logradouro,
+            bairro: data.bairro || newCliente.endereco.bairro,
+            cidade: data.localidade || newCliente.endereco.cidade,
+            estado: data.uf || newCliente.endereco.estado,
+            complemento: data.complemento || newCliente.endereco.complemento,
+          },
+        });
+      }
+    } catch (err) {
+      setCepError('Erro ao consultar CEP');
+      console.error(err);
+    } finally {
+      setLoadingCep(false);
+    }
+  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { height: '90vh' } }}>
@@ -73,6 +115,12 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
             label="CEP"
             value={newCliente.endereco.cep}
             onChange={(e) => setNewCliente({ ...newCliente, endereco: { ...newCliente.endereco, cep: e.target.value } })}
+            onBlur={handleCepBlur}
+            error={!!cepError}
+            helperText={cepError ?? ''}
+            InputProps={{
+              endAdornment: loadingCep ? <CircularProgress size={18} /> : undefined,
+            }}
             fullWidth
           />
           <TextField
