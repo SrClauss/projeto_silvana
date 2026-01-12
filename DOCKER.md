@@ -10,14 +10,17 @@ Build completo do frontend e backend para implantação em produção.
 **Como usar:**
 ```bash
 # Build e iniciar (sempre faz rebuild do frontend e backend)
-docker-compose up --build
+docker compose up --build
+
+# Ou para garantir rebuild completo sem cache
+docker compose build --no-cache
+docker compose up
 
 # Parar e remover containers
-docker-compose down
+docker compose down
 
-# Rebuild forçado (remove cache)
-docker-compose build --no-cache
-docker-compose up
+# Limpar tudo (containers, volumes, imagens)
+docker compose down -v --rmi all
 ```
 
 **Características:**
@@ -32,10 +35,10 @@ Ambiente de desenvolvimento com hot-reload.
 **Como usar:**
 ```bash
 # Iniciar em modo desenvolvimento
-docker-compose -f docker-compose.dev.yml up
+docker compose -f docker-compose.dev.yml up
 
 # Parar
-docker-compose -f docker-compose.dev.yml down
+docker compose -f docker-compose.dev.yml down
 ```
 
 **Características:**
@@ -55,14 +58,40 @@ O problema anterior era que o frontend não atualizava porque:
 - ✅ Dockerfiles dedicados para frontend e backend
 - ✅ Multi-stage build no frontend (build + nginx)
 - ✅ Frontend builda para `/dist` e serve via nginx
-- ✅ `docker-compose up --build` sempre faz rebuild
+- ✅ `docker compose up --build` sempre faz rebuild
 - ✅ Separação entre ambiente dev e produção
+- ✅ .dockerignore para builds eficientes
+
+## Garantindo Builds Atualizados
+
+### Opção 1: Build incremental (mais rápido)
+```bash
+docker compose up --build
+```
+Reconstrói as imagens usando cache quando possível.
+
+### Opção 2: Build completo (garantia total)
+```bash
+docker compose build --no-cache
+docker compose up
+```
+Reconstrói tudo do zero, ignorando cache.
+
+### Opção 3: Limpeza completa e rebuild
+```bash
+# Limpar tudo
+docker compose down -v --rmi all
+
+# Rebuild e iniciar
+docker compose up --build
+```
+Remove containers, volumes e imagens antes de rebuildar.
 
 ## URLs de Acesso
 
 ### Produção
 - Frontend: http://localhost
-- Backend API: http://localhost:8000
+- Backend API: http://localhost:8000 ou http://localhost/api
 - MongoDB: localhost:27017
 
 ### Desenvolvimento
@@ -74,32 +103,47 @@ O problema anterior era que o frontend não atualizava porque:
 
 ```bash
 # Ver logs
-docker-compose logs -f
+docker compose logs -f
 
 # Ver logs de um serviço específico
-docker-compose logs -f frontend
-docker-compose logs -f backend
+docker compose logs -f frontend
+docker compose logs -f backend
 
 # Remover tudo (containers, volumes, networks)
-docker-compose down -v
+docker compose down -v
 
 # Rebuild completo sem cache
-docker-compose build --no-cache --pull
-docker-compose up
+docker compose build --no-cache --pull
+docker compose up
+
+# Verificar configuração
+docker compose config
+
+# Ver status dos containers
+docker compose ps
 ```
 
 ## Notas Importantes
 
 1. **Sempre use `--build`** em produção para garantir que as mudanças sejam aplicadas:
    ```bash
-   docker-compose up --build
+   docker compose up --build
    ```
 
 2. **Para forçar rebuild completo** (remove cache Docker):
    ```bash
-   docker-compose build --no-cache
+   docker compose build --no-cache
    ```
 
 3. **Desenvolvimento vs Produção**:
    - Use `docker-compose.dev.yml` para desenvolvimento (hot-reload)
    - Use `docker-compose.yml` para produção (otimizado)
+
+4. **Multi-stage Build**:
+   - O frontend usa multi-stage build (Node para build + Nginx para servir)
+   - Isso garante imagens menores e mais seguras em produção
+
+5. **Arquivos Estáticos**:
+   - O Vite builda os arquivos estáticos em `/app/dist` no container de build
+   - O Nginx copia e serve esses arquivos de `/usr/share/nginx/html`
+   - Não há volumes montados em produção, garantindo que cada build seja novo
