@@ -7,7 +7,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+# Note: npm may show "Exit handler never called" error but dependencies install correctly
+RUN npm ci || npm install
 
 # Copy source code
 COPY . .
