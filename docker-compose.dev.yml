@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  backend:
+    image: python:3.11-slim
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    environment:
+      - ALLOWED_ORIGINS=http://localhost:5173
+      - CORS_ALLOW_CREDENTIALS=true
+      - MONGODB_URL=mongodb://mongodb:27017/projeto_silvana
+    volumes:
+      - ./fastapi:/app
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+    depends_on:
+      - mongodb
+
+  frontend:
+    image: node:20
+    working_dir: /app
+    volumes:
+      - ./react:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+
+  mongodb:
+    image: mongo:7.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=projeto_silvana
+
+volumes:
+  mongodb_data:

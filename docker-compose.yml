@@ -2,39 +2,27 @@ version: "3.8"
 
 services:
   backend:
-    image: python:3.11-slim
-    working_dir: /app
+    build:
+      context: ./fastapi
+      dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
-      - ALLOWED_ORIGINS=http://localhost:5173
+      - ALLOWED_ORIGINS=http://localhost
       - CORS_ALLOW_CREDENTIALS=true
       - MONGODB_URL=mongodb://mongodb:27017/projeto_silvana
-    volumes:
-      - ./fastapi:/app
-    command: sh -c "pip install --no-cache-dir -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
     depends_on:
       - mongodb
+    restart: unless-stopped
 
   frontend:
-    image: node:20
-    working_dir: /app
-    volumes:
-      - ./react:/app
-      - /app/node_modules
-    ports:
-      - "5173:5173"
-    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
-
-  nginx:
-    image: nginx:stable-alpine
+    build:
+      context: ./react
+      dockerfile: Dockerfile
     ports:
       - "80:80"
     depends_on:
       - backend
-    volumes:
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./react/build:/usr/share/nginx/html:ro
     restart: unless-stopped
 
   mongodb:
@@ -45,6 +33,7 @@ services:
       - mongodb_data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=projeto_silvana
+    restart: unless-stopped
 
 volumes:
   mongodb_data:
