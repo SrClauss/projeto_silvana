@@ -3,6 +3,7 @@ from pymongo import ReturnDocument
 from ..models.produtos import Produto
 import os
 from ..database.tags_db import get_or_create_tag_by_descricao, get_tag_by_id
+from ..database.entradas_db import create_entrada, get_entrada_by_id
 from bson import ObjectId
 from datetime import datetime
 
@@ -32,11 +33,34 @@ async def create_produto(produto: Produto):
             tag_doc = await get_or_create_tag_by_descricao(descricao)
             if tag_doc:
                 normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
+
     doc = produto.dict(by_alias=True)
     doc['tags'] = normalized_tags
     doc['created_at'] = datetime.utcnow()
+
+    # Ensure at least one item exists; if not, add default item with quantity 1 and acquisition_date = now
+    from ..models.itens import Item as ItemModel
+    default_item_added = False
+    if not doc.get('itens'):
+        default_item = ItemModel(quantity=1)
+        doc['itens'] = [default_item.dict(by_alias=True)]
+        default_item_added = True
+
+    # Insert product
     result = await db.produtos.insert_one(doc)
-    return result.inserted_id
+    produto_id = result.inserted_id
+
+    # If we added a default item, create a corresponding entrada for today
+    if default_item_added:
+        from ..models.entradas import Entrada as EntradaModel
+        entrada_obj = EntradaModel(produtos_id=produto_id, quantidade=default_item.quantity, tipo='compra')
+        entrada_id = await create_entrada(entrada_obj)
+        # fetch the entrada to append to produto document
+        entrada_doc = await get_entrada_by_id(entrada_id)
+        if entrada_doc:
+            await db.produtos.update_one({"_id": produto_id}, {"$push": {"entradas": entrada_doc}})
+
+    return produto_id
 
 async def get_produtos():
     return await db.produtos.find().to_list(None)
@@ -98,10 +122,23 @@ async def get_produto_com_tudo(produto_id: str):
     return await db.produtos.aggregate(pipeline).to_list(None)
 
 # Filtro por tags
-async def get_produtos_by_tags(tag_ids: list):
-    # Require products to have all specified tags (intersection)
+async def get_produtos_by_tags(tag_ids: list, mode: str = 'OR'):
+    """Retorna produtos que correspondem às tags fornecidas.
+
+    mode: 'AND' requer que o produto possua todas as tags (interseção),
+    'OR' requer que possua qualquer uma das tags (união).
+    """
+    mode = (mode or 'OR').upper()
+    if mode not in ('AND', 'OR'):
+        mode = 'OR'
+
+    if mode == 'AND':
+        match_stage = {"tags._id": {"$all": tag_ids}}
+    else:
+        match_stage = {"tags._id": {"$in": tag_ids}}
+
     pipeline = [
-        {"$match": {"tags._id": {"$all": tag_ids}}},
+        {"$match": match_stage},
         {"$lookup": {"from": "tags", "localField": "tags._id", "foreignField": "_id", "as": "tags_completas"}},
         {"$addFields": {
             "tags": {

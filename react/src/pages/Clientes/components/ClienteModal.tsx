@@ -118,7 +118,7 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
           size="small"
           onClick={handleAddCliente}
           variant="contained"
-          sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, width: '100%' }}
+          sx={{  width: '100%' }}
           disabled={addingCliente}
         >
           {addingCliente ? 'Salvando...' : (editingId ? 'Salvar' : 'Adicionar')}

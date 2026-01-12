@@ -5,6 +5,7 @@ from ..database.vendas_db import (
     processar_venda_produto,
     get_estoque_disponivel_por_produto
 )
+from ..database.clientes_db import get_cliente_by_id
 from ..routers.auth import get_current_user
 
 router = APIRouter()
@@ -22,6 +23,12 @@ async def criar_venda(venda: VendaRequest):
     Cria uma venda seguindo lógica FIFO (First In, First Out).
     Remove itens mais antigos primeiro baseado em acquisition_date.
     """
+    # If a cliente_id is provided, ensure it exists
+    if venda.cliente_id:
+        cliente = await get_cliente_by_id(venda.cliente_id)
+        if not cliente:
+            raise HTTPException(status_code=400, detail="cliente_id not found")
+
     result = await processar_venda_produto(
         produto_id=venda.produto_id,
         quantidade=venda.quantidade,

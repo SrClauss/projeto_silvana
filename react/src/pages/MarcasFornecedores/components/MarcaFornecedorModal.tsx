@@ -87,7 +87,7 @@ const MarcaFornecedorModal: React.FC<MarcaFornecedorModalProps> = ({
           size="small"
           onClick={handleSave}
           variant="contained"
-          sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, width: '100%' }}
+          sx={{  width: '100%' }}
           disabled={saving}
         >
           {saving ? 'Salvando...' : (editingMarca ? 'Salvar' : 'Adicionar')}

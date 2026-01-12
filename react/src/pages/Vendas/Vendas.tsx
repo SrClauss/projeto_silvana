@@ -19,7 +19,8 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 import axios from 'axios';
 import VendaModal from './components/VendaModal';
-import type { Produto } from '../../types';
+import ClienteSelectModal from './components/ClienteSelectModal';
+import type { Produto, Cliente } from '../../types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -31,6 +32,9 @@ function Vendas() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Client selection state
+  const [clientModalOpen, setClientModalOpen] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
   const fetchProdutos = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -41,14 +45,16 @@ function Vendas() {
       });
       setProdutos(response.data);
       setLoading(false);
-    } catch (err) {
+    } catch (error) {
+      console.error('Erro ao carregar produtos:', error);
       setError('Erro ao carregar produtos');
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchProdutos();
+    const load = async () => { await fetchProdutos(); };
+    load();
   }, []);
 
   const getEstoqueDisponivel = (produto: Produto) => {
@@ -59,8 +65,8 @@ function Vendas() {
 
   const filteredProdutos = produtos.filter(
     (produto) =>
-      produto.codigo_interno.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      produto.descricao.toLowerCase().includes(searchTerm.toLowerCase())
+      (produto.codigo_interno || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (produto.descricao || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleOpenModal = (produto: Produto) => {
@@ -103,14 +109,24 @@ function Vendas() {
           <Typography variant="body2" color="text.secondary" gutterBottom>
             O sistema utiliza lógica FIFO (First In, First Out) - os itens mais antigos são vendidos primeiro.
           </Typography>
-          <TextField
-            fullWidth
-            label="Buscar produto"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ mt: 2 }}
-            placeholder="Digite o código interno ou descrição"
-          />
+
+          <Box sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center' }}>
+            {selectedClient ? (
+              <>
+                <Typography>Cliente: <strong>{selectedClient.nome}</strong></Typography>
+                <Button size="small" onClick={() => setSelectedClient(null)}>Alterar/Remover</Button>
+              </>
+            ) : (
+              <Button variant="contained" size="small" onClick={() => setClientModalOpen(true)}>Selecionar Cliente</Button>
+            )}
+            <TextField
+              fullWidth
+              label="Buscar produto"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Digite o código interno ou descrição"
+            />
+          </Box>
         </CardContent>
       </Card>
 
@@ -165,7 +181,8 @@ function Vendas() {
                         size="small"
                         startIcon={<AddIcon />}
                         onClick={() => handleOpenModal(produto)}
-                        disabled={estoqueDisponivel === 0}
+                        disabled={estoqueDisponivel === 0 || !selectedClient}
+                        title={!selectedClient ? 'Selecione um cliente antes de vender' : undefined}
                       >
                         Vender
                       </Button>
@@ -185,8 +202,16 @@ function Vendas() {
           onSuccess={handleSuccess}
           produtoId={selectedProduto._id}
           produtoDescricao={selectedProduto.descricao}
+          clienteId={selectedClient?._id}
+          clienteDescricao={selectedClient?.nome}
         />
       )}
+
+      <ClienteSelectModal
+        open={clientModalOpen}
+        onClose={() => setClientModalOpen(false)}
+        onSelect={(c) => { setSelectedClient(c); setClientModalOpen(false); }}
+      />
     </Box>
   );
 }

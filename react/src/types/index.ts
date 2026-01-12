@@ -71,6 +71,14 @@ export interface MarcaFornecedor {
   updated_at?: string;
 }
 
+export interface Sessao {
+  _id: string;
+  nome: string;
+  localizacao?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface Endereco {
   cep: string;
   logradouro: string;

@@ -21,10 +21,13 @@ import {
   CircularProgress,
   InputAdornment,
   IconButton,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import { Add, Search, Visibility, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import axios from 'axios';
+import api from '../../lib/axios';
+import { isAxiosError } from 'axios';
 import type { Tag, Produto, Item, Saida, Entrada} from '../../types';
 
 interface ProdutoData {
@@ -54,6 +57,7 @@ const Produtos: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [tagFilterMode, setTagFilterMode] = useState<'AND' | 'OR'>('OR');
   const [openModal, setOpenModal] = useState(false);
   const [loadingProdutos, setLoadingProdutos] = useState(false);
   const [loadingTags, setLoadingTags] = useState(false);
@@ -97,7 +101,6 @@ const Produtos: React.FC = () => {
   const loadProdutos = async (q?: string, selectedTagsParam?: Tag[]) => {
     setLoadingProdutos(true);
     try {
-      const token = localStorage.getItem('token');
       let prods: Produto[] = [];
 
       const query = q ?? searchQuery;
@@ -105,19 +108,24 @@ const Produtos: React.FC = () => {
 
       if (query && query.trim() !== '' && tagsParam && tagsParam.length > 0) {
         // Search first, then filter by tags (server-side endpoint for combined filter not implemented)
-        const res = await axios.get(`/produtos/search/?query=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await api.get(`/produtos/search/?query=${encodeURIComponent(query)}`);
         prods = res.data;
         const tagIds = tagsParam.map(t => t._id);
-        prods = prods.filter(p => p.tags && p.tags.some(t => tagIds.includes(t._id)));
+        prods = prods.filter(p => {
+          if (!p.tags) return false;
+          return tagFilterMode === 'OR'
+            ? p.tags.some(t => tagIds.includes(t._id))
+            : tagIds.every(id => p.tags.some(t => t._id === id));
+        });
       } else if (query && query.trim() !== '') {
-        const res = await axios.get(`/produtos/search/?query=${encodeURIComponent(query)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await api.get(`/produtos/search/?query=${encodeURIComponent(query)}`);
         prods = res.data;
       } else if (tagsParam && tagsParam.length > 0) {
         const tag_ids = tagsParam.map(t => t._id).join(',');
-        const res = await axios.get(`/produtos/by-tags/?tag_ids=${encodeURIComponent(tag_ids)}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await api.get(`/produtos/by-tags/?tag_ids=${encodeURIComponent(tag_ids)}&mode=${encodeURIComponent(tagFilterMode)}`);
         prods = res.data;
       } else {
-        const res = await axios.get('/produtos/', { headers: { Authorization: `Bearer ${token}` } });
+        const res = await api.get('/produtos/');
         prods = res.data;
       }
 
@@ -135,10 +143,7 @@ const Produtos: React.FC = () => {
   const fetchTags = async () => {
     setLoadingTags(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/produtos/tags/', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get('/produtos/tags/');
       setTags(response.data);
       setTagOptions(response.data);
     } catch (error) {
@@ -150,8 +155,7 @@ const Produtos: React.FC = () => {
 
   const fetchProdutoById = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get(`/produtos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get(`/produtos/${id}`);
       return res.data as Produto;
     } catch (error) {
       console.error('Erro ao buscar produto:', error);
@@ -161,10 +165,7 @@ const Produtos: React.FC = () => {
   const searchTags = async (q: string) => {
     setLoadingTags(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`/produtos/tags/search/?q=${encodeURIComponent(q)}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await api.get(`/produtos/tags/search/?q=${encodeURIComponent(q)}`);
       setTagOptions(response.data);
     } catch (error) {
       console.error('Erro ao buscar tags:', error);
@@ -175,8 +176,7 @@ const Produtos: React.FC = () => {
 
   const createTag = async (descricao: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.post('/produtos/tags/', { descricao }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.post('/produtos/tags/', { descricao });
       const created = res.data;
       // update local caches
       setTags((t) => [...t, created]);
@@ -198,17 +198,30 @@ const Produtos: React.FC = () => {
   };
 
   const fetchLastCodigoSuggestion = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setCodigoError('Faça login para obter sugestão de código interno.');
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
-      const res = await axios.get('/produtos/codigo-interno/last', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/produtos/codigo-interno/last');
       if (res.data && res.data.suggested) {
         setNewProduto((p) => ({ ...p, codigo_interno: res.data.suggested }));
       }
     } catch (error) {
+      // Tratar 401 separadamente para evitar logs desnecessários e informar o usuário
+      if (isAxiosError(error) && error.response?.status === 401) {
+        setCodigoError('Sessão expirada. Faça login novamente.');
+        // opcional: limpar token e redirecionar para login
+        // localStorage.removeItem('token');
+        // window.location.href = '/login';
+        return;
+      }
       console.error('Erro ao buscar ultimo codigo interno:', error);
     }
   };
-
+  
   const handleOpenModal = async () => {
     setEditingId(null);
     setCodigoError(null);
@@ -244,8 +257,7 @@ const Produtos: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Confirma exclusão deste produto?')) return;
     try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`/produtos/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/produtos/${id}`);
       await loadProdutos();
     } catch (error) {
       console.error('Erro ao deletar produto:', error);
@@ -254,7 +266,7 @@ const Produtos: React.FC = () => {
   const handleAddProduto = async () => {
     setAddingProduto(true);
     try {
-      const token = localStorage.getItem('token');
+      // token é gerenciado automaticamente pela instância `api`
       const produtoData: ProdutoData = {
         codigo_interno: newProduto.codigo_interno,
         codigo_externo: newProduto.codigo_externo,
@@ -272,11 +284,9 @@ const Produtos: React.FC = () => {
       };
 
       if (editingId) {
-        await axios.put(`/produtos/${editingId}`, produtoData, { headers: { Authorization: `Bearer ${token}` } });
+        await api.put(`/produtos/${editingId}`, produtoData);
       } else {
-        await axios.post('/produtos/', produtoData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.post('/produtos/', produtoData);
       }
 
       setOpenModal(false);
@@ -295,7 +305,7 @@ const Produtos: React.FC = () => {
       await loadProdutos();
     } catch (error) {
       console.error('Erro ao adicionar/atualizar produto:', error);
-      if (axios.isAxiosError(error) && error?.response?.status === 400 && error.response.data?.detail === 'codigo_interno already exists') {
+      if (isAxiosError(error) && error?.response?.status === 400 && error.response.data?.detail === 'codigo_interno already exists') {
         setCodigoError('Código interno já existe. Buscando nova sugestão...');
         await fetchLastCodigoSuggestion();
       }
@@ -345,8 +355,14 @@ const Produtos: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTags]);
 
+  // recarrega quando o modo de filtro mudar
+  useEffect(() => {
+    loadProdutos(searchQuery, selectedTags);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagFilterMode]);
+
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
+    <Box sx={{ width: '100%' }}>
       <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>
         Produtos
       </Typography>
@@ -394,12 +410,24 @@ const Produtos: React.FC = () => {
             sx={{ minWidth: { sm: 160 }, width: { xs: '100%', sm: 'auto' } }}
             loading={loadingTags}
           />
+          {/* modo de filtro: E (AND) / OU (OR) */}
+          <ToggleButtonGroup
+            value={tagFilterMode}
+            exclusive
+            size="small"
+            onChange={(_e, v) => { if (v) setTagFilterMode(v as 'AND'|'OR'); }}
+            sx={{ ml: 1 }}
+            aria-label="Modo filtro por tags"
+          >
+            <ToggleButton value="OR" aria-label="Ou">OU</ToggleButton>
+            <ToggleButton value="AND" aria-label="E">E</ToggleButton>
+          </ToggleButtonGroup>
           <Button
             size="small"
             variant="contained"
             startIcon={<Add />}
             onClick={handleOpenModal}
-            sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}
+            sx={{ boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}
           >
             Adicionar Produto
           </Button>
@@ -413,52 +441,107 @@ const Produtos: React.FC = () => {
           </Box>
         ) : (
           <>
-            <TableContainer sx={{ overflowX: 'auto' }}>
-              <Table>
-                <TableHead>
-                  <TableRow sx={{ bgcolor: theme.palette.primary.main }}>
-                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Código Interno</TableCell>
-                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Descrição</TableCell>
-                    <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Ações</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {paginatedProdutos.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} sx={{ textAlign: 'center', py: 6, color: theme.palette.text.secondary }}>Nenhum produto encontrado</TableCell>
+            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: theme.palette.primary.main }}>
+                      <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Código Interno</TableCell>
+                      <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Descrição</TableCell>
+                      <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600 }}>Ações</TableCell>
                     </TableRow>
-                  ) : (
-                    paginatedProdutos.map((produto) => (
-                      <TableRow key={produto._id} hover>
-                        <TableCell>{produto.codigo_interno}</TableCell>
-                        <TableCell>{produto.descricao}</TableCell>
-                        <TableCell>
-                          <IconButton size="small" onClick={() => handleView(produto._id)} aria-label="ver" sx={{ color: theme.palette.primary.main, mr: 1 }}>
-                            <Visibility fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => handleEdit(produto._id)} aria-label="editar" sx={{ color: theme.palette.primary.main, mr: 1 }}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" onClick={() => handleDelete(produto._id)} aria-label="deletar" sx={{ color: theme.palette.error?.main || 'red' }}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
+                  </TableHead>
+                  <TableBody>
+                    {paginatedProdutos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{ textAlign: 'center', py: 6, color: theme.palette.text.secondary }}>Nenhum produto encontrado</TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            <TablePagination
-              rowsPerPageOptions={[5, 10, 25]}
-              component="div"
-              count={filteredProdutos.length}
-              rowsPerPage={rowsPerPage}
-              page={Math.min(page, Math.max(0, Math.ceil(filteredProdutos.length / rowsPerPage) - 1))}
-              onPageChange={handleChangePage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              sx={{ color: theme.palette.primary.main }}
-            />
+                    ) : (
+                      paginatedProdutos.map((produto) => (
+                        <TableRow key={produto._id} hover>
+                          <TableCell>{produto.codigo_interno}</TableCell>
+                          <TableCell>{produto.descricao}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, alignItems: 'center', whiteSpace: 'nowrap' }}>
+                              <IconButton size="small" onClick={() => handleView(produto._id)} aria-label="ver" title="Ver" sx={{ color: theme.palette.primary.main }}>
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                              <IconButton size="small" onClick={() => handleEdit(produto._id)} aria-label="editar" title="Editar" sx={{ color: theme.palette.primary.main }}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton size="small" onClick={() => handleDelete(produto._id)} aria-label="deletar" title="Deletar" sx={{ color: theme.palette.error?.main || 'red' }}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25]}
+                component="div"
+                count={filteredProdutos.length}
+                rowsPerPage={rowsPerPage}
+                page={Math.min(page, Math.max(0, Math.ceil(filteredProdutos.length / rowsPerPage) - 1))}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                sx={{ color: theme.palette.primary.main }}
+              />
+            </Box>
+
+            <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: theme.palette.primary.main }}>
+                      <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600, width: 120 }}>Código Interno</TableCell>
+                      <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600, minWidth: 360 }}>Descrição</TableCell>
+                      <TableCell sx={{ color: theme.palette.secondary.main, fontWeight: 600, width: 140 }}>Ações</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {paginatedProdutos.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} sx={{ textAlign: 'center', py: 6, color: theme.palette.text.secondary }}>Nenhum produto encontrado</TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedProdutos.map((produto) => (
+                        <TableRow key={produto._id} hover>
+                          <TableCell>{produto.codigo_interno}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'normal' }}>{produto.descricao}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1, alignItems: 'center', whiteSpace: 'nowrap' }}>
+                              <IconButton size="small" onClick={() => handleView(produto._id)} aria-label="ver" title="Ver" sx={{ color: theme.palette.primary.main }}>
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                              <IconButton size="small" onClick={() => handleEdit(produto._id)} aria-label="editar" title="Editar" sx={{ color: theme.palette.primary.main }}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton size="small" onClick={() => handleDelete(produto._id)} aria-label="deletar" title="Deletar" sx={{ color: theme.palette.error?.main || 'red' }}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25]}
+                component="div"
+                count={filteredProdutos.length}
+                rowsPerPage={rowsPerPage}
+                page={Math.min(page, Math.max(0, Math.ceil(filteredProdutos.length / rowsPerPage) - 1))}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                sx={{ color: theme.palette.primary.main }}
+              />
+            </Box>
 
             {/* View modal for full product info */}
             <Dialog open={!!viewProduto} onClose={() => setViewProduto(null)} maxWidth="md" fullWidth>

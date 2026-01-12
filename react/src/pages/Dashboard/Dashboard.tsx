@@ -91,28 +91,23 @@ const Dashboard = () => {
     return `${day} ${mon}`;
   };
 
-  const weeklySales = dashboardData.weeklySales.map((w, i) => {
+  const weeklySales = dashboardData.weeklySales.map((w) => {
     const start = w.start || '';
     const end = w.end || '';
-    const weekLabel = `Sem ${i+1} (${formatDayMonthShort(start)} - ${formatDayMonthShort(end)})`;
+    const weekLabel = `${formatDayMonthShort(start)} - ${formatDayMonthShort(end)}`;
     return { ...w, weekLabel };
   });
 
   return (
     <ThemeProvider theme={theme}>
       {/* Remover Box wrapper - o LoggedLayout já fornece o container */}
-      <Box id="dashboard-root" sx={{ width: '100%', py: 6 }}>
-        <Box id="dashboard-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 6 }}>
-          <Box>
-            <Typography id="dashboard-title" variant="h4">Gestão do Ateliê</Typography>
+      <Box id="dashboard-root" sx={{ width: '100%' }}>
+        <Box id="dashboard-header" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 6 }}>
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography id="dashboard-title" variant="h4">Gestão do Closet</Typography>
             <Typography id="dashboard-subtitle" variant="body2" color="text.secondary">Janeiro 2026 • Performance</Typography>
           </Box>
-          <Box id="dashboard-user" sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-             <Box sx={{ textAlign: 'right' }}>
-                <Typography id="dashboard-user-name" variant="subtitle2" sx={{ fontWeight: 800 }}>Admin Silvana</Typography>
-             </Box>
-             <Avatar id="dashboard-user-avatar" sx={{ bgcolor: 'primary.main', border: '1px solid #D4AF37' }}>ST</Avatar>
-          </Box>
+        
         </Box>
 
             <Grid id="dashboard-grid" container spacing={4}>
@@ -164,14 +159,14 @@ const Dashboard = () => {
               {/* FLUXO SEMANAL + CUSTOS (Linha 3) */}
               <Grid item xs={12} md={8} id="dashboard-weekly">
                 <Paper id="dashboard-weekly-paper" sx={{ p: 4, height: '100%' }}>
-                  <Typography id="dashboard-weekly-title" variant="h6" sx={{ mb: 5 }}>Fluxo Semanal (Barras Horizontais)</Typography>
-                  <Box id="dashboard-weekly-list" sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Typography id="dashboard-weekly-title" variant="h6" sx={{ mb: 5 }}>Fluxo Semanal</Typography>
+                  <Box id="dashboard-weekly-list" sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {weeklySales.map((w, i) => (
-                      <Box key={i} id={`dashboard-weekly-row-${i}`} sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                        <Box sx={{ minWidth: 200, pr: 3 }}>
+                      <Box key={i} id={`dashboard-weekly-row-${i}`} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box sx={{ minWidth: 50, pr: 3 }}>
                           <Typography id={`dashboard-weekly-label-${i}`} variant="caption" sx={{ fontWeight: 700 }}>{w.weekLabel}</Typography>
                         </Box>
-                        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
                           <Box id={`dashboard-weekly-bar-${i}`} sx={{ 
                             height: '22px', 
                             bgcolor: i === weeklySales.length - 1 ? 'secondary.main' : 'primary.main', 

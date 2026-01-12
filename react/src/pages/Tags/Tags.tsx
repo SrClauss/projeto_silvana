@@ -137,7 +137,7 @@ const TagsPage: React.FC = () => {
             }}
             fullWidth
           />
-          <Button size="small" variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}>
+          <Button size="small" variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{  boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}>
             Adicionar Tag
           </Button>
         </Box>

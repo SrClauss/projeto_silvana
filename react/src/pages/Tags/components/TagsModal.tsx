@@ -52,7 +52,7 @@ const TagsModal: React.FC<TagsModalProps> = ({
           size="small"
           onClick={handleCreate}
           variant="contained"
-          sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, width: '100%' }}
+          sx={{  width: '100%' }}
           disabled={creating}
         >
           {creating ? 'Salvando...' : (editingId ? 'Salvar' : 'Adicionar')}

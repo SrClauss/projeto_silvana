@@ -17,6 +17,7 @@ from api.routers import (
     desejos_cliente_router,
     users_router,
     marcas_fornecedores_router,
+    sessoes_router,
     vendas_router,
 )
 
@@ -103,5 +104,6 @@ app.include_router(condicionais_fornecedor_router.router, prefix="/condicionais-
 app.include_router(faturamento_router.router, prefix="/faturamento", tags=["faturamento"])
 app.include_router(condicionais_cliente_router.router, prefix="/condicionais-cliente", tags=["condicionais-cliente"])
 app.include_router(marcas_fornecedores_router.router, prefix="/marcas-fornecedores", tags=["marcas-fornecedores"])
+app.include_router(sessoes_router.router, prefix="/sessoes", tags=["sessoes"])
 app.include_router(users_router.router, prefix="/users", tags=["users"])
 app.include_router(vendas_router.router, prefix="/vendas", tags=["vendas"])

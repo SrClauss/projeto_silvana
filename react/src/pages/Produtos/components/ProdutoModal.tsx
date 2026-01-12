@@ -16,8 +16,9 @@ import {
 import { Add, Delete } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
-import type { Tag, Item } from '../../../types';
+import type { Tag, Item, Sessao } from '../../../types';
 import MarcaFornecedorModal from '../../../components/MarcaFornecedorModal';
+import SessaoModal from '../../Sessoes/components/SessaoModal';
 import type { MarcaFornecedor } from '../../../types';
 
 interface ProdutoModalProps {
@@ -80,6 +81,13 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   const [marcaOptions, setMarcaOptions] = React.useState<MarcaFornecedor[]>([]);
   const [marcaLoading, setMarcaLoading] = React.useState(false);
   const [marcaInputValue, setMarcaInputValue] = React.useState('');
+  const [selectedMarca, setSelectedMarca] = React.useState<MarcaFornecedor | null>(null);
+
+  const [sessaoModalOpen, setSessaoModalOpen] = React.useState(false);
+  const [sessaoOptions, setSessaoOptions] = React.useState<Sessao[]>([]);
+  const [sessaoLoading, setSessaoLoading] = React.useState(false);
+  const [sessaoInputValue, setSessaoInputValue] = React.useState('');
+
   const [tempItens, setTempItens] = React.useState<Item[]>([]);
 
   React.useEffect(() => {
@@ -123,10 +131,37 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
     }
   };
 
+  // Helper para label consistente
+  const marcaLabel = (option: string | MarcaFornecedor | null) => {
+    if (!option) return '';
+    if (typeof option === 'string') return option;
+    const nome = option.nome || '';
+    const fornecedor = option.fornecedor || '';
+    return fornecedor && fornecedor !== nome ? `${nome} / ${fornecedor}` : nome;
+  };
+
+  const searchSessoes = async (q: string) => {
+    setSessaoLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get('/sessoes/', { headers: { Authorization: `Bearer ${token}` } });
+      const list: Sessao[] = res.data;
+      const filtered = q ? list.filter(s => (s.nome || '').toLowerCase().includes(q.toLowerCase()) || (s.localizacao || '').toLowerCase().includes(q.toLowerCase())) : list;
+      setSessaoOptions(filtered);
+    } catch (e) {
+      console.error('Erro ao buscar sessões:', e);
+      setSessaoOptions([]);
+    } finally {
+      setSessaoLoading(false);
+    }
+  };
+
   const handleSaveMarca = (marca: MarcaFornecedor) => {
-    // Atualizar o campo marca_fornecedor com o nome da marca
-    setNewProduto({ ...newProduto, marca_fornecedor: marca.nome });
-    // adicionar a lista local de options
+    // Ao criar/editar uma marca, NÃO predefinir o select: limpar o valor para o usuário escolher
+    setNewProduto({ ...newProduto, marca_fornecedor: '' });
+    setSelectedMarca(null);
+    setMarcaInputValue('');
+    // adicionar a lista local de options (deixa disponível para seleção)
     setMarcaOptions(prev => [marca, ...prev.filter(m => m._id !== marca._id)]);
   };
 
@@ -166,18 +201,39 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
             <Autocomplete
               size="small"
               options={marcaOptions}
-              getOptionLabel={(option) => typeof option === 'string' ? option : option.nome}
-              value={marcaOptions.find(m => m.nome === newProduto.marca_fornecedor) ?? (newProduto.marca_fornecedor || null)}
+              getOptionLabel={(option) => marcaLabel(option as any)}
+              isOptionEqualToValue={(option, value) => {
+                if (!option || !value) return false;
+                const optId = (option as MarcaFornecedor)._id;
+                const valId = (value as MarcaFornecedor)._id;
+                if (optId && valId) return optId === valId;
+                // fallback to name equality
+                return (option as any).nome === (value as any).nome;
+              }}
+              value={selectedMarca}
               onChange={(_e, value) => {
                 if (!value) {
+                  setSelectedMarca(null);
+                  setMarcaInputValue('');
                   setNewProduto({ ...newProduto, marca_fornecedor: '' });
                   return;
                 }
-                if (typeof value === 'string') setNewProduto({ ...newProduto, marca_fornecedor: value });
-                else setNewProduto({ ...newProduto, marca_fornecedor: value.nome });
+                if (typeof value === 'string') {
+                  // free text typed/selected
+                  setSelectedMarca(null);
+                  setMarcaInputValue(value);
+                  setNewProduto({ ...newProduto, marca_fornecedor: value });
+                } else {
+                  setSelectedMarca(value);
+                  setMarcaInputValue(marcaLabel(value));
+                  setNewProduto({ ...newProduto, marca_fornecedor: value.nome });
+                }
               }}
               inputValue={marcaInputValue}
-              onInputChange={(_e, v) => { setMarcaInputValue(v); searchMarcas(v); }}
+              onInputChange={(_e, v, reason) => {
+                setMarcaInputValue(v);
+                if (reason === 'input') searchMarcas(v);
+              }}
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -202,6 +258,50 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
               fullWidth
             />
             <IconButton onClick={() => setMarcaModalOpen(true)} sx={{ color: theme.palette.secondary.main }}>
+              <Add />
+            </IconButton>
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Autocomplete
+              size="small"
+              options={sessaoOptions}
+              getOptionLabel={(option) => typeof option === 'string' ? option : option.nome}
+              value={sessaoOptions.find(s => s.nome === newProduto.sessao) ?? (newProduto.sessao || null)}
+              onChange={(_e, value) => {
+                if (!value) {
+                  setNewProduto({ ...newProduto, sessao: '' });
+                  return;
+                }
+                if (typeof value === 'string') setNewProduto({ ...newProduto, sessao: value });
+                else setNewProduto({ ...newProduto, sessao: value.nome });
+              }}
+              inputValue={sessaoInputValue}
+              onInputChange={(_e, v) => { setSessaoInputValue(v); searchSessoes(v); }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  size="small"
+                  label="Sessão"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {sessaoLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+              onOpen={() => searchSessoes('')}
+              filterOptions={(options, { inputValue }) =>
+                options.filter((o) => o.nome.toLowerCase().includes(inputValue.toLowerCase()) || (o.localizacao || '').toLowerCase().includes(inputValue.toLowerCase()))
+              }
+              freeSolo
+              fullWidth
+            />
+            <IconButton onClick={() => setSessaoModalOpen(true)} sx={{ color: theme.palette.secondary.main }}>
               <Add />
             </IconButton>
           </Box>
@@ -336,7 +436,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
           size="small"
           onClick={handleAddProdutoLocal}
           variant="contained"
-          sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main, width: '100%' }}
+          sx={{  width: '100%' }}
           disabled={addingProduto}
         >
           {addingProduto ? 'Salvando...' : (editingId ? 'Salvar' : 'Adicionar')}
@@ -350,6 +450,17 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
         onClose={() => setMarcaModalOpen(false)}
         editingMarca={null}
         onSave={handleSaveMarca}
+      />
+
+      <SessaoModal
+        open={sessaoModalOpen}
+        onClose={() => setSessaoModalOpen(false)}
+        editingSessao={null}
+        onSave={(sessao) => {
+          // atualizar sessao no produto (nome) e na lista local de sessoes
+          setNewProduto({ ...newProduto, sessao: sessao.nome });
+          setSessaoOptions(prev => [sessao, ...prev.filter(s => s._id !== sessao._id)]);
+        }}
       />
     </Dialog>
   );

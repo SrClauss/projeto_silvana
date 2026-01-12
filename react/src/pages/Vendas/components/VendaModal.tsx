@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   TextField,
@@ -19,18 +19,25 @@ interface VendaModalProps {
   onSuccess: () => void;
   produtoId?: string;
   produtoDescricao?: string;
+  clienteId?: string | null;
+  clienteDescricao?: string | null;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao = '' }: VendaModalProps) {
+function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao = '', clienteId = null, clienteDescricao = null }: VendaModalProps) {
   const [formData, setFormData] = useState({
     produto_id: produtoId,
     quantidade: 1,
-    cliente_id: '',
+    cliente_id: clienteId ?? '',
     valor_total: 0,
     observacoes: '',
   });
+
+  // Sincronizar produtoId e clienteId enviados via props com o form (caso mudem entre aberturas)
+  useEffect(() => {
+    setFormData((f) => ({ ...f, produto_id: produtoId, cliente_id: clienteId ?? '' }));
+  }, [produtoId, clienteId]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -90,11 +97,16 @@ function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao
               inputProps={{ min: 1 }}
             />
 
-            <TextField
-              label="Cliente ID (opcional)"
-              value={formData.cliente_id}
-              onChange={(e) => handleChange('cliente_id', e.target.value)}
-            />
+            {/* Mostrar cliente selecionado (se passado via props) como info; caso contrário, permitir inserir cliente_id manualmente */}
+            {clienteDescricao ? (
+              <Alert severity="info">Cliente: {clienteDescricao}</Alert>
+            ) : (
+              <TextField
+                label="Cliente ID (opcional)"
+                value={formData.cliente_id}
+                onChange={(e) => handleChange('cliente_id', e.target.value)}
+              />
+            )}
 
             <TextField
               label="Valor Total (opcional, em centavos)"

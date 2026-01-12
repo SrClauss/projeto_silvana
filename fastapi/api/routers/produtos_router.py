@@ -52,9 +52,12 @@ async def search_produtos_endpoint(query: str):
     return await search_produtos(query)
 
 @router.get("/by-tags/", dependencies=[Depends(get_current_user)])
-async def get_produtos_by_tags_endpoint(tag_ids: str):
-    tag_list = tag_ids.split(",")
-    return await get_produtos_by_tags(tag_list)
+async def get_produtos_by_tags_endpoint(tag_ids: str, mode: str = 'OR'):
+    tag_list = [t for t in tag_ids.split(",") if t]
+    mode = (mode or 'OR').upper()
+    if mode not in ('AND', 'OR'):
+        mode = 'OR'
+    return await get_produtos_by_tags(tag_list, mode=mode)
 
 @router.get("/tags/", dependencies=[Depends(get_current_user)])
 async def get_tags_endpoint():
