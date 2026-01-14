@@ -3,10 +3,7 @@ import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
   TextField,
-  Alert,
   Table,
   TableBody,
   TableCell,
@@ -14,74 +11,125 @@ import {
   TableHead,
   TableRow,
   Paper,
+  MenuItem,
+  FormControl,
+  Select,
+  InputLabel,
+  TablePagination,
+  Alert,
+  Autocomplete,
   Chip,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
-import { Add as AddIcon } from '@mui/icons-material';
-import axios from 'axios';
-import VendaModal from './components/VendaModal';
-import ClienteSelectModal from './components/ClienteSelectModal';
-import type { Produto, Cliente } from '../../types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import api from '../../lib/axios';
+import { useNavigate } from 'react-router-dom';
+import type { Saida, Tag } from '../../types';
+import { Add as AddIcon } from '@mui/icons-material';
 
 function Vendas() {
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedProduto, setSelectedProduto] = useState<Produto | null>(null);
+  const today = new Date();
+  const isoDate = (d: Date) => d.toISOString().split('T')[0];
+
+  const [vendas, setVendas] = useState<Array<Saida & { produto_descricao?: string; produto_codigo_interno?: string; preco_venda?: number; cliente_nome?: string; cliente_telefone?: string; cliente_cpf?: string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Client selection state
-  const [clientModalOpen, setClientModalOpen] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
-  const fetchProdutos = async () => {
+  // Filters
+  const [dateFrom, setDateFrom] = useState<string>(isoDate(today));
+  const [dateTo, setDateTo] = useState<string>(isoDate(today));
+  const [produtoQuery, setProdutoQuery] = useState('');
+  const [produtoId, setProdutoId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'data' | 'valor'>('data');
+  const [order, setOrder] = useState<'desc' | 'asc'>('desc');
+
+  // Tag filter
+  const [tagOptions, setTagOptions] = useState<Tag[]>([]);
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
+  const [loadingTags, setLoadingTags] = useState(false);
+
+  const fetchTags = async () => {
+    setLoadingTags(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/produtos/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      setProdutos(response.data);
+      const res = await api.get('/produtos/tags/');
+      setTagOptions(res.data || []);
+    } catch (err) {
+      console.error('Erro ao buscar tags:', err);
+    } finally {
+      setLoadingTags(false);
+    }
+  };
+
+  // Pagination
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  const navigate = useNavigate();
+  const theme = useTheme();
+  const isXs = useMediaQuery(theme.breakpoints.down('sm'));
+
+  useEffect(() => {
+    fetchVendas();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateFrom, dateTo, produtoId, sortBy, order, page, rowsPerPage, selectedTags]);
+
+  const fetchVendas = async () => {
+    setLoading(true);
+    setError(null);
+    // Ensure user is authenticated
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setError('Sessão expirada ou não autenticado. Faça login.');
+      setVendas([]);
+      setTotal(0);
       setLoading(false);
-    } catch (error) {
-      console.error('Erro ao carregar produtos:', error);
-      setError('Erro ao carregar produtos');
+      return;
+    }
+
+    try {
+      const params: Record<string, string | number | undefined> = {
+        page: page + 1,
+        per_page: rowsPerPage,
+        date_from: dateFrom,
+        date_to: dateTo,
+        sort_by: sortBy,
+        order: order,
+      };
+      if (produtoId) params.produto_id = produtoId;
+      if (produtoQuery) params.produto_query = produtoQuery;
+      if (selectedTags && selectedTags.length > 0) params.tag_ids = selectedTags.map(t => t._id).join(',');
+
+      const res = await api.get('/vendas/', { params });
+      console.debug('fetchVendas response', res.status, res.data);
+      const data = res.data ?? { items: [], total: 0 };
+      if (!data || typeof data !== 'object') {
+        console.warn('Vendas: resposta inesperada do servidor', res);
+        setVendas([]);
+        setTotal(0);
+      } else {
+        setVendas(data.items ?? []);
+        setTotal(data.total ?? 0);
+      }
+    } catch (err: unknown) {
+      console.error('Erro ao carregar vendas:', err);
+      // try to extract HTTP info
+      type AxiosErrorLike = { response?: { data?: { detail?: string }; status?: number } };
+      if (err && typeof err === 'object' && 'response' in err) {
+        const r = (err as AxiosErrorLike).response;
+        setError(`Erro ao carregar vendas: ${r?.status} ${r?.data?.detail ?? ''}`);
+      } else {
+        setError('Erro ao carregar vendas');
+      }
+    } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    const load = async () => { await fetchProdutos(); };
-    load();
-  }, []);
 
-  const getEstoqueDisponivel = (produto: Produto) => {
-    return produto.itens
-      .filter(item => !item.condicional_fornecedor_id && !item.condicional_cliente_id)
-      .reduce((sum, item) => sum + item.quantity, 0);
-  };
 
-  const filteredProdutos = produtos.filter(
-    (produto) =>
-      (produto.codigo_interno || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (produto.descricao || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
-  const handleOpenModal = (produto: Produto) => {
-    setSelectedProduto(produto);
-    setModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setSelectedProduto(null);
-  };
-
-  const handleSuccess = () => {
-    fetchProdutos();
-  };
 
   if (loading) {
     return (
@@ -93,127 +141,172 @@ function Vendas() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Sistema de Vendas
-        </Typography>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, mb: 3, gap: 1 }}>
+        <Typography variant="h4">Vendas</Typography>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/vendas/criar')} sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}>
+          Fazer Venda
+        </Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Criar Nova Venda
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            O sistema utiliza lógica FIFO (First In, First Out) - os itens mais antigos são vendidos primeiro.
-          </Typography>
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label="Data Início"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            size="small"
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          />
+          <TextField
+            label="Data Fim"
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            size="small"
+            sx={{ width: { xs: '100%', sm: 'auto' } }}
+          />
+          <TextField
+            label="Pesquisar Produto"
+            placeholder="Descrição ou código"
+            size="small"
+            value={produtoQuery}
+            onChange={(e) => setProdutoQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { setProdutoId(''); fetchVendas(); } }}
+            sx={{ flex: { xs: '1 1 100%', sm: '0 1 auto' } }}
+          />
 
-          <Box sx={{ display: 'flex', gap: 2, mt: 2, alignItems: 'center', flexDirection: 'column' }}>
-            {selectedClient ? (
-              <>
-                <Box sx={{ display: 'flex',   width: '100%', gap: 1, alignItems: 'center', justifyContent: 'space-between' }}>
-                <Typography>Cliente: <strong>{selectedClient.nome}</strong></Typography>
-                <Button size="small" onClick={() => setSelectedClient(null)}>Alterar/Remover</Button>
-                </Box>
-              </>
-            ) : (
-              <Button variant="contained" size="small" onClick={() => setClientModalOpen(true)}>Selecionar Cliente</Button>
+          <Autocomplete
+            multiple
+            size="small"
+            options={tagOptions}
+            getOptionLabel={(option) => option.descricao}
+            isOptionEqualToValue={(option, value) => option._id === value._id}
+            value={selectedTags}
+            onChange={(_e, newValue) => setSelectedTags(newValue)}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => (
+                <Chip
+                  label={option.descricao}
+                  {...getTagProps({ index })}
+                />
+              ))
+            }
+            onOpen={() => fetchTags()}
+            loading={loadingTags}
+            renderInput={(params) => (
+              <TextField {...params} label="Filtrar por tags" placeholder="Pesquisar tags" size="small" />
             )}
-            <TextField
-              fullWidth
-              label="Buscar produto"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Digite o código interno ou descrição"
-            />
-          </Box>
-        </CardContent>
-      </Card>
+            sx={{ width: { xs: '100%', sm: 300 } }}
+          />
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 160 } }}>
+            <InputLabel>Ordenar por</InputLabel>
+            <Select value={sortBy} label="Ordenar por" onChange={(e) => setSortBy(e.target.value as unknown as 'data' | 'valor')}>
+              <MenuItem value="data">Data</MenuItem>
+              <MenuItem value="valor">Valor</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
+            <InputLabel>Ordem</InputLabel>
+            <Select value={order} label="Ordem" onChange={(e) => setOrder(e.target.value as unknown as 'desc' | 'asc')}>
+              <MenuItem value="desc">Desc</MenuItem>
+              <MenuItem value="asc">Asc</MenuItem>
+            </Select>
+          </FormControl>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Código Interno</TableCell>
-              <TableCell>Descrição</TableCell>
-              <TableCell>Estoque Disponível</TableCell>
-              <TableCell>Em Condicional</TableCell>
-              <TableCell>Preço Venda</TableCell>
-              <TableCell>Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredProdutos.length === 0 ? (
+          <Button variant="outlined" size="small" onClick={() => { setPage(0); fetchVendas(); }} sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}>
+            Aplicar
+          </Button>
+
+              <Box sx={{ flex: 1 }} />
+        </Box>
+      </Paper>
+
+      {!isXs ? (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={6} align="center">
-                  Nenhum produto encontrado
-                </TableCell>
+                <TableCell>Data</TableCell>
+                <TableCell>Produto</TableCell>
+                <TableCell>Qtd</TableCell>
+                <TableCell>Valor Total</TableCell>
+                <TableCell>Cliente</TableCell>
+
               </TableRow>
-            ) : (
-              filteredProdutos.map((produto) => {
-                const estoqueDisponivel = getEstoqueDisponivel(produto);
-                return (
-                  <TableRow key={produto._id}>
-                    <TableCell>{produto.codigo_interno}</TableCell>
-                    <TableCell>{produto.descricao}</TableCell>
+            </TableHead>
+            <TableBody>
+              {vendas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} align="center">Nenhuma venda encontrada</TableCell>
+                </TableRow>
+              ) : (
+                vendas.map((v) => (
+                  <TableRow key={v._id}>
+                    <TableCell>{new Date(v.data_saida).toLocaleString()}</TableCell>
+                    <TableCell>{v.produto_descricao ?? v.produto_codigo_interno ?? v.produtos_id}</TableCell>
+                    <TableCell>{v.quantidade}</TableCell>
+                    <TableCell>R$ {((v.valor_total || 0) / 100).toFixed(2)}</TableCell>
                     <TableCell>
-                      <Chip 
-                        label={estoqueDisponivel} 
-                        color={estoqueDisponivel > 0 ? 'success' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {produto.em_condicional > 0 && (
-                        <Chip 
-                          label={produto.em_condicional} 
-                          color="warning"
-                          size="small"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      R$ {(produto.preco_venda / 100).toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        startIcon={<AddIcon />}
-                        onClick={() => handleOpenModal(produto)}
-                        disabled={estoqueDisponivel === 0 || !selectedClient}
-                        title={!selectedClient ? 'Selecione um cliente antes de vender' : undefined}
-                      >
-                        Vender
-                      </Button>
+                      <div>
+                        <div><strong>{v.cliente_nome ?? v.cliente_id}</strong></div>
+                        {v.cliente_telefone && <div>{v.cliente_telefone}</div>}
+                        {v.cliente_cpf && <div>CPF: {v.cliente_cpf}</div>}
+                      </div>
                     </TableCell>
                   </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                ))
+              )}
+            </TableBody>
+          </Table>
+          <TablePagination
+            component="div"
+            count={total}
+            page={page}
+            onPageChange={(_e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[5,10,25,50]}
+          />
+        </TableContainer>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {vendas.length === 0 ? (
+            <Paper sx={{ p: 2 }}>
+              <Typography align="center">Nenhuma venda encontrada</Typography>
+            </Paper>
+          ) : (
+            vendas.map((v) => (
+              <Paper key={v._id} sx={{ p: 2 }}>
+                <Typography variant="subtitle2">{new Date(v.data_saida).toLocaleString()}</Typography>
+                <Typography sx={{ mt: 0.5 }}><strong>{v.produto_descricao ?? v.produto_codigo_interno ?? v.produtos_id}</strong></Typography>
+                <Typography>Qtd: {v.quantidade} • R$ {((v.valor_total || 0) / 100).toFixed(2)}</Typography>
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="body2"><strong>{v.cliente_nome ?? v.cliente_id}</strong></Typography>
+                  {v.cliente_telefone && <Typography variant="body2">{v.cliente_telefone}</Typography>}
+                  {v.cliente_cpf && <Typography variant="body2">CPF: {v.cliente_cpf}</Typography>}
+                </Box>
+              </Paper>
+            ))
+          )}
 
-      {selectedProduto && (
-        <VendaModal
-          open={modalOpen}
-          onClose={handleCloseModal}
-          onSuccess={handleSuccess}
-          produtoId={selectedProduto._id}
-          produtoDescricao={selectedProduto.descricao}
-          clienteId={selectedClient?._id}
-          clienteDescricao={selectedClient?.nome}
-        />
+          <TablePagination
+            component="div"
+            count={total}
+            page={page}
+            onPageChange={(_e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            rowsPerPageOptions={[5,10,25,50]}
+          />
+        </Box>
       )}
 
-      <ClienteSelectModal
-        open={clientModalOpen}
-        onClose={() => setClientModalOpen(false)}
-        onSelect={(c) => { setSelectedClient(c); setClientModalOpen(false); }}
-      />
+
     </Box>
   );
 }

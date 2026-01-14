@@ -20,7 +20,10 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Autocomplete,
+  CircularProgress,
 } from '@mui/material';
+import type { Produto } from '../../types';
 import { Undo as UndoIcon } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -55,6 +58,38 @@ function CondicionaisFornecedor() {
     produto_id: '',
     quantidade: 1,
   });
+
+  // create condicional fornecedor modal
+  const [createCondFornecedorOpen, setCreateCondFornecedorOpen] = useState(false);
+  const [createCondFornecedorForm, setCreateCondFornecedorForm] = useState({ fornecedor_id: '', quantidade_max_devolucao: 0, observacoes: '' });
+
+  // adicionar produto modal
+  const [addProdutoModalOpen, setAddProdutoModalOpen] = useState(false);
+  const [addProdutoForm, setAddProdutoForm] = useState({ produto_id: '', quantidade: 1, condicional_id: '' });
+
+  // product autocomplete
+  const [productOptions, setProductOptions] = useState<Produto[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
+  const searchProducts = async (q: string) => {
+    if (!q || q.trim() === '') {
+      setProductOptions([]);
+      return;
+    }
+    setLoadingProducts(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await axios.get(`${API_URL}/produtos/search/?query=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
+      setProductOptions(res.data || []);
+    } catch (e) {
+      console.error('Erro ao buscar produtos', e);
+      setProductOptions([]);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+
+
 
   const fetchCondicionais = async () => {
     try {
@@ -118,8 +153,49 @@ function CondicionaisFornecedor() {
       );
       setDevolverModalOpen(false);
       fetchCondicionais();
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao devolver itens');
+    } catch (err: unknown) {
+      let respDetail: string | undefined;
+      if (err && typeof err === 'object' && 'response' in err) {
+        const r = (err as { response?: { data?: { detail?: string } } }).response;
+        respDetail = r?.data?.detail;
+      }
+      const msg = respDetail ?? (err instanceof Error ? err.message : String(err));
+      setError(msg || 'Erro ao devolver itens');
+    }
+  };
+
+  const handleOpenAddProduto = (condicional: CondicionalFornecedor) => {
+    setAddProdutoForm({ produto_id: '', quantidade: 1, condicional_id: condicional._id });
+    setAddProdutoModalOpen(true);
+  };
+
+  const handleAddProduto = async () => {
+    if (!addProdutoForm.condicional_id) return;
+    if (!addProdutoForm.produto_id) return setError('Selecione um produto válido');
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(
+        `${API_URL}/condicionais-fornecedor/${addProdutoForm.condicional_id}/adicionar-produto`,
+        { produto_id: addProdutoForm.produto_id, quantidade: addProdutoForm.quantidade },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setAddProdutoModalOpen(false);
+      fetchCondicionais();
+    } catch (err: unknown) {
+      console.error('Erro ao adicionar produto ao condicional', err);
+      setError('Erro ao adicionar produto');
+    }
+  };
+
+  const handleCreateCondicionalFornecedor = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/condicionais-fornecedor/`, createCondFornecedorForm, { headers: { Authorization: `Bearer ${token}` } });
+      setCreateCondFornecedorOpen(false);
+      fetchCondicionais();
+    } catch (err: unknown) {
+      console.error('Erro ao criar condicional fornecedor', err);
+      setError('Erro ao criar condicional fornecedor');
     }
   };
 
@@ -140,10 +216,13 @@ function CondicionaisFornecedor() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 3 }}>
         <Typography variant="h4" component="h1">
           Condicionais de Fornecedor
         </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="contained" onClick={() => setCreateCondFornecedorOpen(true)}>Adicionar Condicional Fornecedor</Button>
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -155,6 +234,10 @@ function CondicionaisFornecedor() {
           </Typography>
         </CardContent>
       </Card>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button variant="contained" onClick={() => setCreateCondFornecedorOpen(true)}>Adicionar Condicional Fornecedor</Button>
+      </Box>
 
       <TableContainer component={Paper}>
         <Table>
@@ -226,15 +309,24 @@ function CondicionaisFornecedor() {
                       {new Date(condicional.data_condicional).toLocaleDateString('pt-BR')}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<UndoIcon />}
-                        onClick={() => handleOpenDevolverModal(condicional)}
-                        disabled={!status || status.quantidade_pode_devolver === 0}
-                      >
-                        Devolver
-                      </Button>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => handleOpenAddProduto(condicional)}
+                        >
+                          Adicionar Produto
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<UndoIcon />}
+                          onClick={() => handleOpenDevolverModal(condicional)}
+                          disabled={!status || status.quantidade_pode_devolver === 0}
+                        >
+                          Devolver
+                        </Button>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 );
@@ -248,9 +340,9 @@ function CondicionaisFornecedor() {
       <Dialog open={devolverModalOpen} onClose={() => setDevolverModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Devolver Itens ao Fornecedor</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, mt: 2, alignItems: 'center' }}>
             {selectedCondicional && statusMap.get(selectedCondicional._id) && (
-              <Alert severity="info">
+              <Alert severity="info" sx={{ width: { xs: '100%', sm: 'auto' } }}>
                 Pode devolver ainda: {statusMap.get(selectedCondicional._id)?.quantidade_pode_devolver} item(s)
               </Alert>
             )}
@@ -260,6 +352,7 @@ function CondicionaisFornecedor() {
               value={devolverForm.produto_id}
               onChange={(e) => setDevolverForm({ ...devolverForm, produto_id: e.target.value })}
               required
+              sx={{ width: { xs: '100%', sm: 'auto' } }}
             />
 
             <TextField
@@ -269,6 +362,7 @@ function CondicionaisFornecedor() {
               onChange={(e) => setDevolverForm({ ...devolverForm, quantidade: Math.max(1, parseInt(e.target.value) || 1) })}
               required
               inputProps={{ min: 1 }}
+              sx={{ width: { xs: '100%', sm: 140 } }}
             />
           </Box>
         </DialogContent>
@@ -283,6 +377,49 @@ function CondicionaisFornecedor() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Create Condicional Fornecedor Modal */}
+      <Dialog open={createCondFornecedorOpen} onClose={() => setCreateCondFornecedorOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Criar Condicional Fornecedor</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', gap: 2, mt: 1, flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center' }}>
+            <TextField label="Fornecedor ID" value={createCondFornecedorForm.fornecedor_id} onChange={(e) => setCreateCondFornecedorForm({ ...createCondFornecedorForm, fornecedor_id: e.target.value })} sx={{ width: { xs: '100%', sm: 'auto' } }} />
+            <TextField label="Quantidade Máx Devolução" type="number" value={createCondFornecedorForm.quantidade_max_devolucao} onChange={(e) => setCreateCondFornecedorForm({ ...createCondFornecedorForm, quantidade_max_devolucao: Number(e.target.value || 0) })} sx={{ width: { xs: '100%', sm: 180 } }} />
+            <TextField label="Observações" value={createCondFornecedorForm.observacoes} onChange={(e) => setCreateCondFornecedorForm({ ...createCondFornecedorForm, observacoes: e.target.value })} multiline sx={{ width: { xs: '100%', sm: 'auto' } }} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCreateCondFornecedorOpen(false)}>Cancelar</Button>
+          <Button onClick={handleCreateCondicionalFornecedor} variant="contained">Criar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Add Produto Modal */}
+      <Dialog open={addProdutoModalOpen} onClose={() => setAddProdutoModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Adicionar Produto ao Condicional</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Autocomplete
+              size="small"
+              options={productOptions}
+              getOptionLabel={(opt: Produto) => `${opt.codigo_interno} — ${opt.descricao}`}
+              loading={loadingProducts}
+              onInputChange={(_e, v) => { if (v && v.length >= 2) searchProducts(v); }}
+              onChange={(_e, value) => setAddProdutoForm({ ...addProdutoForm, produto_id: value ? value._id : '' })}
+              renderInput={(params) => (
+                <TextField {...params} label="Produto (código/descrição)" size="small" InputProps={{ ...params.InputProps, endAdornment: (<>{loadingProducts ? <CircularProgress color="inherit" size={16} /> : null}{params.InputProps.endAdornment}</>) }} />
+              )}
+              sx={{ mb: 1 }}
+            />
+            <TextField label="Quantidade" type="number" value={addProdutoForm.quantidade} onChange={(e) => setAddProdutoForm({ ...addProdutoForm, quantidade: Math.max(1, parseInt(e.target.value) || 1) })} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddProdutoModalOpen(false)}>Cancelar</Button>
+          <Button onClick={handleAddProduto} variant="contained">Adicionar</Button>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 }

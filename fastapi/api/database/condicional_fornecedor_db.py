@@ -236,11 +236,16 @@ async def get_status_devolucao_condicional_fornecedor(condicional_id: str, produ
             for item in produto.get("itens", []):
                 if item.get("condicional_fornecedor_id") == condicional_id:
                     total_em_condicional += item.get("quantity", 0)
+
+    # Calcula total vendido originado desta condicional (procura saídas que tiveram condicional_fornecedor_id)
+    vendas_condicional = await db.saidas.find({"condicional_fornecedor_id": condicional_id, "tipo": "venda"}).to_list(None)
+    total_vendido = sum(s.get("quantidade", 0) for s in vendas_condicional)
     
     return {
         "condicional_id": condicional_id,
         "quantidade_max_devolucao": quantidade_max,
         "quantidade_devolvida": total_devolvido,
         "quantidade_pode_devolver": quantidade_max - total_devolvido,
-        "quantidade_em_condicional": total_em_condicional
+        "quantidade_em_condicional": total_em_condicional,
+        "quantidade_vendida": total_vendido
     }

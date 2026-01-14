@@ -241,64 +241,103 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
     
     return {"success": True, "produto_id": produto_id, "quantidade": quantidade}
 
-async def processar_retorno_condicional_cliente(condicional_id: str, produtos_devolvidos_codigos: list):
+async def calcular_retorno_condicional_cliente(condicional_id: str, produtos_devolvidos_codigos: list):
     """
-    Processa o retorno de produtos de uma condicional de cliente.
-    produtos_devolvidos_codigos: lista de códigos internos dos produtos devolvidos
-    O que não foi devolvido é considerado vendido.
+    Calcula quais quantidades seriam devolvidas e vendidas para uma condicional
+    sem aplicar mudanças no banco. Retorna lista com produtos e quantidades.
     """
     condicional = await get_condicional_cliente_by_id(condicional_id)
     if not condicional:
         return {"error": "Condicional não encontrado"}
-    
     if not condicional.get("ativa"):
         return {"error": "Condicional já foi processada"}
-    
-    vendas_criadas = []
-    devolucoes_processadas = []
-    
-    # Conta ocorrências de códigos devolvidos para melhor performance
+
     from collections import Counter
     codigos_devolvidos_count = Counter(produtos_devolvidos_codigos)
-    
-    # Para cada produto na condicional
+
+    resultado = {
+        "condicional_id": condicional_id,
+        "produtos": []
+    }
+
     for prod_qty in condicional.get("produtos", []):
         produto_id = prod_qty["produto_id"]
         quantidade_enviada = prod_qty["quantidade"]
-        
-        # Busca o produto
         produto = await db.produtos.find_one({"_id": produto_id})
         if not produto:
             continue
-        
         codigo_interno = produto.get("codigo_interno")
-        
-        # Conta quantos deste produto foram devolvidos (usando Counter)
         quantidade_devolvida = codigos_devolvidos_count.get(codigo_interno, 0)
-        quantidade_vendida = quantidade_enviada - quantidade_devolvida
-        
-        # Encontra itens deste condicional no produto
+        quantidade_vendida = max(0, quantidade_enviada - quantidade_devolvida)
+        resultado["produtos"].append({
+            "produto_id": produto_id,
+            "codigo_interno": codigo_interno,
+            "quantidade_enviada": quantidade_enviada,
+            "quantidade_devolvida": quantidade_devolvida,
+            "quantidade_vendida": quantidade_vendida
+        })
+
+    return resultado
+
+
+async def processar_retorno_condicional_cliente(condicional_id: str, produtos_devolvidos_codigos: list, auto_create_sales: bool = True, vendas_list: list = None):
+    """
+    Processa o retorno de produtos de uma condicional de cliente.
+    Se auto_create_sales=False e vendas_list=None, apenas calcula e retorna o resultado sem aplicar mudanças.
+    Se vendas_list for fornecido, aplica as vendas conforme a lista (múltiplas vendas) e atualiza o estoque/condicional.
+    """
+    # Primeiro calcule o que deve ser devolvido/vendido
+    calc = await calcular_retorno_condicional_cliente(condicional_id, produtos_devolvidos_codigos)
+    if calc.get("error"):
+        return calc
+
+    # Se o cliente só quer calcular (não aplicar alterações)
+    if not auto_create_sales and not vendas_list:
+        return calc
+
+    # Agora aplique as mudanças no banco
+    condicional = await get_condicional_cliente_by_id(condicional_id)
+    if not condicional or not condicional.get("ativa"):
+        return {"error": "Condicional não encontrado ou já processada"}
+
+    vendas_criadas = []
+    devolucoes_processadas = []
+
+    # Se vendas_list fornecida, validar somas
+    vendas_por_produto = {}
+    if vendas_list:
+        for v in vendas_list:
+            vendas_por_produto.setdefault(v["produto_id"], 0)
+            vendas_por_produto[v["produto_id"]] += v["quantidade"]
+
+    # Itera por cada produto e aplica devoluções e vendas (usando os números calculados)
+    for p in calc["produtos"]:
+        produto_id = p["produto_id"]
+        quantidade_enviada = p["quantidade_enviada"]
+        quantidade_devolvida = p["quantidade_devolvida"]
+        quantidade_vendida_calc = p["quantidade_vendida"]
+
+        produto = await db.produtos.find_one({"_id": produto_id})
+        if not produto:
+            continue
+
+        # Começa aplicando devoluções (desmarcar condicional)
         itens_condicional = [
             (i, item) for i, item in enumerate(produto.get("itens", []))
             if item.get("condicional_cliente_id") == condicional_id
         ]
-        
-        # Processa devoluções - remove marca de condicional
+
         itens_atualizados = list(produto.get("itens", []))
         quantidade_devolucao_restante = quantidade_devolvida
-        
+
         for idx, item in itens_condicional:
             if quantidade_devolucao_restante <= 0:
                 break
-            
             item_qty = item.get("quantity", 0)
-            
             if item_qty <= quantidade_devolucao_restante:
-                # Desmarca completamente
                 itens_atualizados[idx]["condicional_cliente_id"] = None
                 quantidade_devolucao_restante -= item_qty
             else:
-                # Divide o item
                 itens_atualizados[idx]["quantity"] = item_qty - quantidade_devolucao_restante
                 novo_item = {
                     "quantity": quantidade_devolucao_restante,
@@ -308,38 +347,36 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
                 }
                 itens_atualizados.append(novo_item)
                 quantidade_devolucao_restante = 0
-        
+
+        # Se vendas_list foi fornecida usamos as quantidades das vendas, senão usamos cálculo automático
+        quantidade_vendida_para_aplicar = quantidade_vendida_calc
+        if vendas_list and vendas_por_produto.get(produto_id) is not None:
+            if vendas_por_produto[produto_id] != quantidade_vendida_calc:
+                return {"error": f"Soma das vendas fornecidas para produto {produto_id} ({vendas_por_produto[produto_id]}) não confere com quantidade vendida calculada ({quantidade_vendida_calc})"}
+            quantidade_vendida_para_aplicar = vendas_por_produto[produto_id]
+
         # Processa vendas - remove itens marcados que não foram devolvidos (FIFO)
-        quantidade_venda_restante = quantidade_vendida
-        
-        # Re-encontra itens ainda marcados com este condicional
+        quantidade_venda_restante = quantidade_vendida_para_aplicar
         itens_para_venda = [
             (i, item) for i, item in enumerate(itens_atualizados)
             if item.get("condicional_cliente_id") == condicional_id
         ]
-        
-        # Ordena por acquisition_date (FIFO)
         itens_para_venda.sort(key=lambda x: x[1].get("acquisition_date", datetime.utcnow()))
-        
+
         for idx, item in itens_para_venda:
             if quantidade_venda_restante <= 0:
                 break
-            
             item_qty = item.get("quantity", 0)
-            
             if item_qty <= quantidade_venda_restante:
-                # Remove completamente
-                itens_atualizados[idx] = None  # Marca para remoção
+                itens_atualizados[idx] = None
                 quantidade_venda_restante -= item_qty
             else:
-                # Reduz quantidade
                 itens_atualizados[idx]["quantity"] = item_qty - quantidade_venda_restante
                 quantidade_venda_restante = 0
-        
-        # Remove itens marcados como None
+
         itens_atualizados = [item for item in itens_atualizados if item is not None]
-        
-        # Atualiza o produto
+
+        # Atualiza o produto e decrementa em_condicional pelo total enviado
         await db.produtos.update_one(
             {"_id": produto_id},
             {
@@ -347,39 +384,41 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
                 "$inc": {"em_condicional": -quantidade_enviada}
             }
         )
-        
-        # Cria saída de venda se houve venda
-        if quantidade_vendida > 0:
-            saida = Saida(
-                produtos_id=produto_id,
-                cliente_id=condicional.get("cliente_id"),
-                quantidade=quantidade_vendida,
-                tipo="venda",
-                data_saida=datetime.utcnow(),
-                observacoes=f"Venda por condicional {condicional_id}"
-            )
-            result = await db.saidas.insert_one(saida.dict(by_alias=True))
-            vendas_criadas.append({
-                "saida_id": str(result.inserted_id),
-                "produto_id": produto_id,
-                "quantidade": quantidade_vendida
-            })
-        
+
+        # Registrar devolução
         if quantidade_devolvida > 0:
-            devolucoes_processadas.append({
-                "produto_id": produto_id,
-                "quantidade": quantidade_devolvida
-            })
-    
+            devolucoes_processadas.append({"produto_id": produto_id, "quantidade": quantidade_devolvida})
+
+        # Criar vendas: se vendas_list fornecida, cria uma Saida para cada venda do produto; caso contrário, cria uma única Saida como antes
+        if vendas_list and vendas_por_produto.get(produto_id) is not None:
+            for v in vendas_list:
+                if v["produto_id"] != produto_id:
+                    continue
+                saida = Saida(
+                    produtos_id=produto_id,
+                    cliente_id=condicional.get("cliente_id"),
+                    quantidade=v["quantidade"],
+                    tipo="venda",
+                    data_saida=datetime.utcnow(),
+                    valor_total=v.get("valor_total"),
+                    observacoes=v.get("observacoes")
+                )
+                result = await db.saidas.insert_one(saida.dict(by_alias=True))
+                vendas_criadas.append({"saida_id": str(result.inserted_id), "produto_id": produto_id, "quantidade": v["quantidade"]})
+        else:
+            if quantidade_vendida_para_aplicar > 0:
+                saida = Saida(
+                    produtos_id=produto_id,
+                    cliente_id=condicional.get("cliente_id"),
+                    quantidade=quantidade_vendida_para_aplicar,
+                    tipo="venda",
+                    data_saida=datetime.utcnow(),
+                    observacoes=f"Venda por condicional {condicional_id}"
+                )
+                result = await db.saidas.insert_one(saida.dict(by_alias=True))
+                vendas_criadas.append({"saida_id": str(result.inserted_id), "produto_id": produto_id, "quantidade": quantidade_vendida_para_aplicar})
+
     # Encerra a condicional
-    await update_condicional_cliente(condicional_id, {
-        "data_devolucao": datetime.utcnow(),
-        "ativa": False
-    })
-    
-    return {
-        "success": True,
-        "condicional_id": condicional_id,
-        "vendas_criadas": vendas_criadas,
-        "devolucoes_processadas": devolucoes_processadas
-    }
+    await update_condicional_cliente(condicional_id, {"data_devolucao": datetime.utcnow(), "ativa": False})
+
+    return {"success": True, "condicional_id": condicional_id, "vendas_criadas": vendas_criadas, "devolucoes_processadas": devolucoes_processadas}

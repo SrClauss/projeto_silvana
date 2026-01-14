@@ -50,7 +50,7 @@ interface ProdutoModalProps {
   codigoError: string | null;
   setCodigoError: React.Dispatch<React.SetStateAction<string | null>>;
   addingProduto: boolean;
-  handleAddProduto: () => Promise<void>;
+  handleAddProduto: (itensParam?: Item[]) => Promise<void>;
   modalTagInput: string;
   setModalTagInput: React.Dispatch<React.SetStateAction<string>>;
   tagOptions: Tag[];
@@ -111,8 +111,10 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
     if (finalItens.length === 0) {
       finalItens = [{ quantity: 0, acquisition_date: new Date().toISOString().split('T')[0] }];
     }
+    // Atualiza o estado local para manter consistência visual
     setNewProduto({ ...newProduto, itens: finalItens });
-    await handleAddProduto();
+    // Passa os itens diretamente para evitar problema com setState assíncrono
+    await handleAddProduto(finalItens);
   };
 
   const searchMarcas = async (q: string) => {
@@ -201,14 +203,14 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
             <Autocomplete
               size="small"
               options={marcaOptions}
-              getOptionLabel={(option) => marcaLabel(option as any)}
+              getOptionLabel={(option) => marcaLabel(option as MarcaFornecedor | string | null)}
               isOptionEqualToValue={(option, value) => {
                 if (!option || !value) return false;
                 const optId = (option as MarcaFornecedor)._id;
                 const valId = (value as MarcaFornecedor)._id;
                 if (optId && valId) return optId === valId;
                 // fallback to name equality
-                return (option as any).nome === (value as any).nome;
+                return (option as MarcaFornecedor).nome === (value as MarcaFornecedor).nome; 
               }}
               value={selectedMarca}
               onChange={(_e, value) => {

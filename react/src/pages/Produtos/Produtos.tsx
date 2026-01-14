@@ -23,6 +23,8 @@ import {
   IconButton,
   ToggleButton,
   ToggleButtonGroup,
+  Divider,
+  Stack,
 } from '@mui/material';
 import { Add, Search, Visibility, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
@@ -263,17 +265,18 @@ const Produtos: React.FC = () => {
       console.error('Erro ao deletar produto:', error);
     }
   };
-  const handleAddProduto = async () => {
+  const handleAddProduto = async (itensParam?: Item[]) => {
     setAddingProduto(true);
     try {
       // token é gerenciado automaticamente pela instância `api`
+      const itensToUse = itensParam ?? newProduto.itens ?? [];
       const produtoData: ProdutoData = {
         codigo_interno: newProduto.codigo_interno,
         codigo_externo: newProduto.codigo_externo,
         descricao: newProduto.descricao,
         marca_fornecedor: newProduto.marca_fornecedor,
         sessao: newProduto.sessao,
-        itens: newProduto.itens,
+        itens: itensToUse,
         saidas: [],
         entradas: [],
         em_condicional: 0,
@@ -545,50 +548,87 @@ const Produtos: React.FC = () => {
 
             {/* View modal for full product info */}
             <Dialog open={!!viewProduto} onClose={() => setViewProduto(null)} maxWidth="md" fullWidth>
-              <DialogTitle sx={{ bgcolor: theme.palette.primary.main, color: theme.palette.secondary.main }}>Produto</DialogTitle>
+              <DialogTitle sx={{ bgcolor: theme.palette.primary.main, color: theme.palette.secondary.main }}>Visualizar Produto</DialogTitle>
               <DialogContent>
                 {viewProduto && (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                    <Box>
-                      <Typography variant="subtitle2">Código Interno</Typography>
-                      <Typography>{viewProduto.codigo_interno}</Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 1, bgcolor: theme.palette.background.paper }}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" justifyContent="space-between">
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="h6">{viewProduto.descricao}</Typography>
+                          <Typography variant="body2" color="text.secondary">{viewProduto.codigo_interno} • {viewProduto.codigo_externo}</Typography>
+                        </Box>
+                        <Box sx={{ textAlign: 'right' }}>
+                          <Typography variant="subtitle2">Total em Estoque</Typography>
+                          <Typography sx={{ fontWeight: 600, fontSize: 18 }}>
+                            {viewProduto.itens ? viewProduto.itens.reduce((s, it) => s + (Number(it.quantity) || 0), 0) : 0}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </Paper>
+
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                      <Paper variant="outlined" sx={{ p: 2 }}>
+                        <Typography variant="subtitle2">Detalhes</Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Typography variant="body2"><strong>Marca:</strong> {viewProduto.marca_fornecedor || '-'}</Typography>
+                        <Typography variant="body2"><strong>Sessão:</strong> {viewProduto.sessao || '-'}</Typography>
+                        <Typography variant="body2"><strong>Preço Custo:</strong> {formatCurrency(viewProduto.preco_custo)}</Typography>
+                        <Typography variant="body2"><strong>Preço Venda:</strong> {formatCurrency(viewProduto.preco_venda)}</Typography>
+                      </Paper>
+
+                      <Paper variant="outlined" sx={{ p: 2 }}>
+                        <Typography variant="subtitle2">Tags</Typography>
+                        <Divider sx={{ my: 1 }} />
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          {viewProduto.tags && viewProduto.tags.length > 0 ? (
+                            viewProduto.tags.map((t) => (
+                              <Chip key={t._id} label={t.descricao_case_insensitive ?? t.descricao} title={t.descricao} variant="outlined" size="small" />
+                            ))
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">Sem tags</Typography>
+                          )}
+                        </Box>
+                      </Paper>
                     </Box>
-                    <Box>
-                      <Typography variant="subtitle2">Código Externo</Typography>
-                      <Typography>{viewProduto.codigo_externo}</Typography>
-                    </Box>
-                    <Box sx={{ gridColumn: '1 / -1' }}>
-                      <Typography variant="subtitle2">Descrição</Typography>
-                      <Typography>{viewProduto.descricao}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2">Marca/Fornecedor</Typography>
-                      <Typography>{viewProduto.marca_fornecedor}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2">Sessão</Typography>
-                      <Typography>{viewProduto.sessao}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2">Preço Custo</Typography>
-                      <Typography>{formatCurrency(viewProduto.preco_custo)}</Typography>
-                    </Box>
-                    <Box>
-                      <Typography variant="subtitle2">Preço Venda</Typography>
-                      <Typography>{formatCurrency(viewProduto.preco_venda)}</Typography>
-                    </Box>
-                    <Box sx={{ gridColumn: '1 / -1' }}>
-                      <Typography variant="subtitle2">Tags</Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                        {viewProduto.tags.map((t) => (
-                          <Chip key={t._id} label={t.descricao_case_insensitive ?? t.descricao} title={t.descricao} sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }} />
-                        ))}
-                      </Box>
-                    </Box>
+
+                    <Paper variant="outlined" sx={{ p: 1 }}>
+                      <Typography variant="subtitle2" sx={{ px: 2, pt: 1 }}>Itens e Estoque</Typography>
+                      <Divider sx={{ my: 1 }} />
+                      {viewProduto.itens && viewProduto.itens.length > 0 ? (
+                        <TableContainer component={Paper} sx={{ maxHeight: 280 }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Data de Aquisição</TableCell>
+                                <TableCell align="right">Quantidade</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {viewProduto.itens.map((item, index) => (
+                                <TableRow key={index}>
+                                  <TableCell>{item.acquisition_date ? new Date(item.acquisition_date).toLocaleDateString('pt-BR') : '-'}</TableCell>
+                                  <TableCell align="right">{item.quantity ?? 0}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                            <tfoot>
+                              <TableRow>
+                                <TableCell><strong>Total</strong></TableCell>
+                                <TableCell align="right"><strong>{viewProduto.itens.reduce((s, it) => s + (Number(it.quantity) || 0), 0)}</strong></TableCell>
+                              </TableRow>
+                            </tfoot>
+                          </Table>
+                        </TableContainer>
+                      ) : (
+                        <Typography sx={{ p: 2 }}>Nenhum item em estoque.</Typography>
+                      )}
+                    </Paper>
                   </Box>
                 )}
               </DialogContent>
-              <DialogActions sx={{ p: 2 }}>
+              <DialogActions sx={{ p: 2, display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                <Button size="small" color="primary" variant="outlined" onClick={() => { setOpenModal(true); setEditingId(viewProduto?._id ?? null); setViewProduto(null); }}>Editar</Button>
                 <Button size="small" onClick={() => setViewProduto(null)}>Fechar</Button>
               </DialogActions>
             </Dialog>

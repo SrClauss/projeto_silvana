@@ -10,6 +10,8 @@ class Saida(BaseModel):
     produtos_id: str
     cliente_id: Optional[str] = None
     fornecedor_id: Optional[str] = None
+    condicional_fornecedor_id: Optional[str] = None
+    condicional_cliente_id: Optional[str] = None
     quantidade: int
     tipo: TypoSaida
     data_saida: datetime = Field(default_factory=datetime.utcnow)

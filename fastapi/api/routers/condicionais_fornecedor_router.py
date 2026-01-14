@@ -35,6 +35,16 @@ async def get_condicional_fornecedor(condicional_id: str):
         raise HTTPException(status_code=404, detail="Condicional Fornecedor not found")
     return condicional
 
+@router.get("/{condicional_id}/completa", dependencies=[Depends(get_current_user)])
+async def get_condicional_fornecedor_completa_endpoint(condicional_id: str):
+    """
+    Retorna a condicional fornecedor com os dados completos dos produtos e fornecedor.
+    """
+    result = await get_condicional_fornecedor_completa(condicional_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Condicional Fornecedor not found")
+    return result[0]
+
 @router.put("/{condicional_id}", dependencies=[Depends(get_current_user)])
 async def update_condicional_fornecedor_endpoint(condicional_id: str, update_data: dict):
     condicional = await update_condicional_fornecedor(condicional_id, update_data)

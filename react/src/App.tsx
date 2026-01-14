@@ -7,8 +7,10 @@ import TagsPage from './pages/Tags/Tags';
 import MarcasFornecedores from './pages/MarcasFornecedores/MarcasFornecedores';
 import Sessoes from './pages/Sessoes/Sessoes';
 import Vendas from './pages/Vendas/Vendas';
+import CriarVenda from './pages/Vendas/CriarVenda';
 import CondicionaisFornecedor from './pages/CondicionaisFornecedor/CondicionaisFornecedor';
 import CondicionaisCliente from './pages/CondicionaisCliente/CondicionaisCliente';
+import CriarCondicionalCliente from './pages/CondicionaisCliente/CriarCondicionalCliente';
 import LoggedLayout from './components/LoggedLayout';
 
 function App() {
@@ -23,8 +25,10 @@ function App() {
         <Route path="/marcas-fornecedores" element={<LoggedLayout activePage="/marcas-fornecedores"><MarcasFornecedores /></LoggedLayout>} />
         <Route path="/sessoes" element={<LoggedLayout activePage="/sessoes"><Sessoes /></LoggedLayout>} />
         <Route path="/vendas" element={<LoggedLayout activePage="/vendas"><Vendas /></LoggedLayout>} />
+        <Route path="/vendas/criar" element={<LoggedLayout activePage="/vendas"><CriarVenda /></LoggedLayout>} />
         <Route path="/condicionais-fornecedor" element={<LoggedLayout activePage="/condicionais-fornecedor"><CondicionaisFornecedor /></LoggedLayout>} />
         <Route path="/condicionais-cliente" element={<LoggedLayout activePage="/condicionais-cliente"><CondicionaisCliente /></LoggedLayout>} />
+        <Route path="/condicionais-cliente/criar" element={<LoggedLayout activePage="/condicionais-cliente"><CriarCondicionalCliente /></LoggedLayout>} />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>

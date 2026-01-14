@@ -12,6 +12,8 @@ import {
   CircularProgress,
 } from '@mui/material';
 import axios from 'axios';
+import api from '../../../lib/axios';
+import type { Item } from '../../../types';
 
 interface VendaModalProps {
   open: boolean;
@@ -26,7 +28,8 @@ interface VendaModalProps {
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao = '', clienteId = null, clienteDescricao = null }: VendaModalProps) {
-  const [formData, setFormData] = useState({
+  interface VendaForm { produto_id: string; quantidade: number; cliente_id: string; valor_total: number; observacoes: string }
+  const [formData, setFormData] = useState<VendaForm>({
     produto_id: produtoId,
     quantidade: 1,
     cliente_id: clienteId ?? '',
@@ -34,37 +37,85 @@ function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao
     observacoes: '',
   });
 
+  // Produto details fetched to get preco_venda and estoque
+  const [unitPrice, setUnitPrice] = useState<number>(0); // em cents
+  const [subtotal, setSubtotal] = useState<number>(0); // em cents
+  const [valorOverridden, setValorOverridden] = useState(false);
+  const [estoqueDisponivel, setEstoqueDisponivel] = useState<number | null>(null);
+
   // Sincronizar produtoId e clienteId enviados via props com o form (caso mudem entre aberturas)
   useEffect(() => {
     setFormData((f) => ({ ...f, produto_id: produtoId, cliente_id: clienteId ?? '' }));
+    // reset override ao abrir com novo produto
+    setValorOverridden(false);
+    setUnitPrice(0);
+    setSubtotal(0);
   }, [produtoId, clienteId]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const handleChange = (field: string, value: any) => {
-    setFormData({ ...formData, [field]: value });
+  const handleChange = (field: keyof VendaForm, value: string | number) => {
+    // se usuário editar valor_total manualmente, marcar override
+    if (field === 'valor_total') setValorOverridden(true);
+    setFormData({ ...formData, [field]: value } as unknown as VendaForm);
   };
+
+  // Buscar detalhes do produto quando produto_id estiver definido
+  useEffect(() => {
+    const loadProduto = async () => {
+      if (!formData.produto_id) return;
+      try {
+        const token = localStorage.getItem('token');
+        const res = await axios.get(`${API_URL}/produtos/${formData.produto_id}`, { headers: { Authorization: `Bearer ${token}` } });
+        const preco = res.data.preco_venda ?? 0;
+        setUnitPrice(preco);
+        // calcular estoque disponível
+        const estoque = (res.data.itens || []).filter((it: Item) => !it.condicional_fornecedor_id && !it.condicional_cliente_id).reduce((s: number, it: Item) => s + (it.quantity || 0), 0);
+        setEstoqueDisponivel(estoque);
+        // Note: API returns items with shape similar to Item type; runtime checks kept here.
+        // calcular subtotal
+        const sub = (formData.quantidade || 1) * preco;
+        setSubtotal(sub);
+        if (!valorOverridden) {
+          setFormData((f) => ({ ...f, valor_total: sub }));
+        }
+      } catch (e) {
+        console.error('Erro ao buscar produto:', e);
+      }
+    };
+    loadProduto();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.produto_id]);
+
+  // recalcular subtotal quando quantidade mudar
+  useEffect(() => {
+    const newSub = (formData.quantidade || 1) * (unitPrice || 0);
+    setSubtotal(newSub);
+    if (!valorOverridden) setFormData((f) => ({ ...f, valor_total: newSub }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.quantidade, unitPrice]);
 
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/vendas/`, formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await api.post(`/vendas/`, formData);
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
         onSuccess();
         onClose();
-      }, 2000);
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Erro ao criar venda');
+      }, 1000);
+    } catch (err: unknown) {
+      let respDetail: string | undefined;
+      if (err && typeof err === 'object' && 'response' in err) {
+        const r = (err as { response?: { data?: { detail?: string } } }).response;
+        respDetail = r?.data?.detail;
+      }
+      const msg = respDetail ?? (err instanceof Error ? err.message : String(err));
+      setError(msg || 'Erro ao criar venda');
     } finally {
       setLoading(false);
     }
@@ -108,12 +159,32 @@ function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao
               />
             )}
 
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              <Box sx={{ flex: 1 }}>
+                <TextField
+                  label="Preço Unitário"
+                  value={unitPrice ? `R$ ${(unitPrice / 100).toFixed(2)}` : ''}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+              </Box>
+              <Box sx={{ width: 160 }}>
+                <TextField
+                  label="Subtotal"
+                  value={`R$ ${(subtotal / 100).toFixed(2)}`}
+                  InputProps={{ readOnly: true }}
+                  fullWidth
+                />
+              </Box>
+            </Box>
+
             <TextField
-              label="Valor Total (opcional, em centavos)"
+              label="Valor Total (em centavos)"
               type="number"
               value={formData.valor_total}
               onChange={(e) => handleChange('valor_total', parseInt(e.target.value) || 0)}
               inputProps={{ min: 0 }}
+              helperText={valorOverridden ? 'Valor manual' : 'Calculado automaticamente (pode editar)'}
             />
 
             <TextField
@@ -125,6 +196,12 @@ function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao
             />
 
             {error && <Alert severity="error">{error}</Alert>}
+
+            {estoqueDisponivel !== null && (
+              <Box sx={{ mt: 1 }}>
+                <small>Estoque disponível: {estoqueDisponivel}</small>
+              </Box>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -134,7 +211,7 @@ function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao
           <Button
             onClick={handleSubmit}
             variant="contained"
-            disabled={loading || !formData.produto_id || formData.quantidade < 1}
+            disabled={loading || !formData.produto_id || formData.quantidade < 1 || (estoqueDisponivel !== null && formData.quantidade > estoqueDisponivel)}
           >
             {loading ? <CircularProgress size={24} /> : 'Criar Venda'}
           </Button>

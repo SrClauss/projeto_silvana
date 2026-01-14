@@ -16,7 +16,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
 
   // Runtime validation: ensure MenuIcon is a valid React component (helps catch bad imports that are objects)
-  const isMenuIconValid = typeof MenuIcon === 'function' || (MenuIcon && typeof (MenuIcon as any).render === 'function');
+  const isMenuIconValid = typeof MenuIcon === 'function' || (MenuIcon && 'render' in MenuIcon && typeof (MenuIcon as unknown as { render?: unknown }).render === 'function');
   if (!isMenuIconValid) {
     // eslint-disable-next-line no-console
     console.warn('Layout: MenuIcon appears to be invalid. Falling back to text icon. Value:', MenuIcon);

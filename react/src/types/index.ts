@@ -98,3 +98,49 @@ export interface Cliente {
   created_at: string;
   updated_at?: string;
 }
+
+export interface CondicionalProduto {
+  produto_id: string;
+  quantidade: number;
+  produto?: Produto;
+}
+
+export interface CondicionalCliente {
+  _id: string;
+  cliente_id: string;
+  produtos: CondicionalProduto[];
+  data_condicional: string;
+  data_devolucao?: string;
+  ativa: boolean;
+  observacoes?: string;
+  created_at: string;
+  updated_at?: string;
+  cliente?: Cliente;
+}
+
+export interface CalcProduct {
+  produto_id: string;
+  codigo_interno: string;
+  quantidade_enviada: number;
+  quantidade_devolvida: number;
+  quantidade_vendida: number;
+}
+
+export interface CalcResult {
+  condicional_id: string;
+  produtos: CalcProduct[];
+}
+
+export interface SaleItem {
+  produto_id: string;
+  quantidade: number;
+  valor_total?: number;
+  observacoes?: string;
+}
+
+export interface SaleDraft {
+  id: string;
+  name: string;
+  cliente_id?: string;
+  items?: SaleItem[];
+}
