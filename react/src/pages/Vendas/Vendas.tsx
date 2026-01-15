@@ -127,7 +127,11 @@ function Vendas() {
     }
   };
 
+  const  handleDeleteVenda = async (vendaId: string) => {
 
+    console.log('Deletar venda', vendaId);
+
+  }
 
 
 
@@ -236,6 +240,7 @@ function Vendas() {
                 <TableCell>Qtd</TableCell>
                 <TableCell>Valor Total</TableCell>
                 <TableCell>Cliente</TableCell>
+                <TableCell>Actions</TableCell>
 
               </TableRow>
             </TableHead>
@@ -258,6 +263,7 @@ function Vendas() {
                         {v.cliente_cpf && <div>CPF: {v.cliente_cpf}</div>}
                       </div>
                     </TableCell>
+                    
                   </TableRow>
                 ))
               )}

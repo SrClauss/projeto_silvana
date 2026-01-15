@@ -85,7 +85,6 @@ function CondicionaisCliente() {
   const [viewCondicional, setViewCondicional] = useState<CondicionalClienteType | null>(null);
   const fetchCondicionalCompleta = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await api.get(`/condicionais-cliente/${id}/completa`);
       setViewCondicional(res.data);
     } catch (e) {
@@ -100,7 +99,6 @@ function CondicionaisCliente() {
 
   const fetchCalcular = async (condId: string, devolvidos: string[]) => {
     try {
-      const token = localStorage.getItem('token');
       const res = await api.post(`/condicionais-cliente/${condId}/calcular-retorno`, { produtos_devolvidos_codigos: devolvidos });
       setCalcResult(res.data);
     } catch (e) {
@@ -149,7 +147,6 @@ function CondicionaisCliente() {
     });
 
     try {
-      const token = localStorage.getItem('token');
       await api.post(`/condicionais-cliente/${selectedCondicional._id}/processar-retorno`, { produtos_devolvidos_codigos: codigosDevolvidos, vendas: vendasFlat });
       setProcessarModalOpen(false);
       setSalesDraft([]);

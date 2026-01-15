@@ -77,7 +77,6 @@ function CondicionaisFornecedor() {
     }
     setLoadingProducts(true);
     try {
-      const token = localStorage.getItem('token');
       const res = await api.get(`/produtos/search/?query=${encodeURIComponent(q)}`);
       setProductOptions(res.data || []);
     } catch (e) {
