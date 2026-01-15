@@ -27,7 +27,7 @@ import type { Produto } from '../../types';
 import { Undo as UndoIcon } from '@mui/icons-material';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 interface CondicionalFornecedor {
   _id: string;

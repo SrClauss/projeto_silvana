@@ -30,7 +30,7 @@ import type { CalcResult, SaleDraft, SaleItem, CondicionalCliente as Condicional
 import { CheckCircle as CheckCircleIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 
 function CondicionaisCliente() {
@@ -57,7 +57,7 @@ function CondicionaisCliente() {
       });
       setCondicionais(response.data);
       setLoading(false);
-    } catch (err) {
+    } catch {
       setError('Erro ao carregar condicionais de cliente');
       setLoading(false);
     }

@@ -25,7 +25,7 @@ interface VendaModalProps {
   clienteDescricao?: string | null;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 function VendaModal({ open, onClose, onSuccess, produtoId = '', produtoDescricao = '', clienteId = null, clienteDescricao = null }: VendaModalProps) {
   interface VendaForm { produto_id: string; quantidade: number; cliente_id: string; valor_total: number; observacoes: string }
