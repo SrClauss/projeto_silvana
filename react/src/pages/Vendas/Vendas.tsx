@@ -21,12 +21,13 @@ import {
   Chip,
   useTheme,
   useMediaQuery,
+  IconButton,
 } from '@mui/material';
 
 import api from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
 import type { Saida, Tag } from '../../types';
-import { Add as AddIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete } from '@mui/icons-material';
 
 function Vendas() {
   const today = new Date();
@@ -127,11 +128,7 @@ function Vendas() {
     }
   };
 
-  const  handleDeleteVenda = async (vendaId: string) => {
 
-    console.log('Deletar venda', vendaId);
-
-  }
 
 
 
@@ -262,6 +259,11 @@ function Vendas() {
                         {v.cliente_telefone && <div>{v.cliente_telefone}</div>}
                         {v.cliente_cpf && <div>CPF: {v.cliente_cpf}</div>}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <IconButton color="error" onClick={() => handleDeleteVenda(v._id)}>
+                        <Delete />
+                      </IconButton>
                     </TableCell>
                     
                   </TableRow>
