@@ -49,10 +49,10 @@ function Vendas() {
   const [tagOptions, setTagOptions] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
-  const handleDeleteVenda = async (vendaId: string) => {
-    console.log("Deleting venda", vendaId);
+ 
 
-  }
+
+
   const fetchTags = async () => {
     setLoadingTags(true);
     try {
@@ -131,7 +131,7 @@ function Vendas() {
     }
   };
 
-  const handleDeleteVenda = async (vendaId: string) => {
+  const deleteVenda = async (vendaId: string) => {
     if (!window.confirm('Confirma exclusão desta venda?')) return;
     try {
       await api.delete(`/vendas/${vendaId}`);
@@ -271,7 +271,7 @@ function Vendas() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <IconButton color="error" onClick={() => handleDeleteVenda(v._id)}>
+                      <IconButton color="error" onClick={() => deleteVenda(v._id)}>
                         <Delete />
                       </IconButton>
                     </TableCell>
