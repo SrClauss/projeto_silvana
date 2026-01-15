@@ -25,9 +25,8 @@ import {
 } from '@mui/material';
 import type { Produto } from '../../types';
 import { Undo as UndoIcon } from '@mui/icons-material';
-import axios from 'axios';
+import api from '../../lib/axios';
 
-const API_URL = import.meta.env.VITE_API_URL ?? '/api';
 
 interface CondicionalFornecedor {
   _id: string;
@@ -93,21 +92,12 @@ function CondicionaisFornecedor() {
 
   const fetchCondicionais = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/condicionais-fornecedor/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get('/condicionais-fornecedor/');
       setCondicionais(response.data);
       
       // Fetch status for each condicional
       const statusPromises = response.data.map((c: CondicionalFornecedor) =>
-        axios.get(`${API_URL}/condicionais-fornecedor/${c._id}/status-devolucao`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
+        api.get(`/condicionais-fornecedor/${c._id}/status-devolucao`)
       );
       
       const statusResponses = await Promise.all(statusPromises);

@@ -28,9 +28,7 @@ import {
 } from '@mui/material';
 import type { CalcResult, SaleDraft, SaleItem, CondicionalCliente as CondicionalClienteType, CalcProduct, CondicionalProduto } from '../../types';
 import { CheckCircle as CheckCircleIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import axios from 'axios';
-
-const API_URL = import.meta.env.VITE_API_URL ?? '/api';
+import api from '../../lib/axios';
 
 
 function CondicionaisCliente() {
@@ -49,12 +47,7 @@ function CondicionaisCliente() {
 
   const fetchCondicionais = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get(`${API_URL}/condicionais-cliente/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await api.get('/condicionais-cliente/');
       setCondicionais(response.data);
       setLoading(false);
     } catch {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Drawer, AppBar, Toolbar, IconButton, Paper } from '@mui/material';
+import { Box, Drawer, AppBar, Toolbar, IconButton, Paper, Typography } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 import SidebarContent from './SidebarContent';
 import { customTheme } from '../theme';
@@ -21,6 +21,7 @@ const LoggedLayout: React.FC<LoggedLayoutProps> = ({ children }) => {
       <Box id="sidebar-box" sx={{ width: sideWidth, flexShrink: 0, display: { xs: 'none', md: 'block' }, position: { md: 'fixed' }, top: 0, left: 0, bottom: 0, zIndex: (theme) => theme.zIndex.drawer }}>
         <Paper id="sidebar-paper" sx={{ height: '100%', bgcolor: '#3D2B1F', borderRadius: 0, border: 'none', width: sideWidth, display: 'flex', flexDirection: 'column', transition: 'width 200ms', overflow: 'auto' }}>
           <SidebarContent isCollapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
+      
         </Paper>
       </Box>
 
