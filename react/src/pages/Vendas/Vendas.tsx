@@ -49,7 +49,10 @@ function Vendas() {
   const [tagOptions, setTagOptions] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
+  const handleDeleteVenda = async (vendaId: string) => {
+    console.log("Deleting venda", vendaId);
 
+  }
   const fetchTags = async () => {
     setLoadingTags(true);
     try {
@@ -128,9 +131,16 @@ function Vendas() {
     }
   };
 
-
-
-
+  const handleDeleteVenda = async (vendaId: string) => {
+    if (!window.confirm('Confirma exclusão desta venda?')) return;
+    try {
+      await api.delete(`/vendas/${vendaId}`);
+      fetchVendas();
+    } catch (err) {
+      console.error('Erro ao deletar venda:', err);
+      setError('Erro ao deletar venda');
+    }
+  };
 
   if (loading) {
     return (
