@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Drawer, AppBar, Toolbar, IconButton, Paper, Typography } from '@mui/material';
+import { Box, Drawer, AppBar, Toolbar, IconButton, Paper} from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 import SidebarContent from './SidebarContent';
 import { customTheme } from '../theme';

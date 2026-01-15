@@ -86,7 +86,7 @@ function CondicionaisCliente() {
   const fetchCondicionalCompleta = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_URL}/condicionais-cliente/${id}/completa`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get(`/condicionais-cliente/${id}/completa`);
       setViewCondicional(res.data);
     } catch (e) {
       console.error('Erro ao buscar condicional completa', e);
@@ -101,7 +101,7 @@ function CondicionaisCliente() {
   const fetchCalcular = async (condId: string, devolvidos: string[]) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post(`${API_URL}/condicionais-cliente/${condId}/calcular-retorno`, { produtos_devolvidos_codigos: devolvidos }, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.post(`/condicionais-cliente/${condId}/calcular-retorno`, { produtos_devolvidos_codigos: devolvidos });
       setCalcResult(res.data);
     } catch (e) {
       console.error('Erro ao calcular retorno', e);
@@ -150,7 +150,7 @@ function CondicionaisCliente() {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/condicionais-cliente/${selectedCondicional._id}/processar-retorno`, { produtos_devolvidos_codigos: codigosDevolvidos, vendas: vendasFlat }, { headers: { Authorization: `Bearer ${token}` } });
+      await api.post(`/condicionais-cliente/${selectedCondicional._id}/processar-retorno`, { produtos_devolvidos_codigos: codigosDevolvidos, vendas: vendasFlat });
       setProcessarModalOpen(false);
       setSalesDraft([]);
       fetchCondicionais();

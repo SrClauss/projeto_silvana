@@ -86,6 +86,7 @@ const SidebarContent = ({ onNavigate, isCollapsed, onToggleCollapse }: { onNavig
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Typography component={"div"} variant='caption' color={theme.palette.background.default}>V 1.0</Typography>
       <Box sx={{ p: 4, textAlign: 'center' }}>
         <Typography variant="h5" sx={{ color: theme.palette.secondary.main, fontFamily: 'serif', fontWeight: 700, display: isCollapsed ? 'none' : 'block' }}>SilvanaTeodoro</Typography>
         <Typography variant="caption" sx={{ color: theme.palette.secondary.main, opacity: 0.6, letterSpacing: 2, display: isCollapsed ? 'none' : 'block' }}>CLOSET</Typography>

@@ -78,7 +78,7 @@ function CondicionaisFornecedor() {
     setLoadingProducts(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`${API_URL}/produtos/search/?query=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get(`/produtos/search/?query=${encodeURIComponent(q)}`);
       setProductOptions(res.data || []);
     } catch (e) {
       console.error('Erro ao buscar produtos', e);
@@ -131,16 +131,7 @@ function CondicionaisFornecedor() {
     if (!selectedCondicional) return;
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/condicionais-fornecedor/${selectedCondicional._id}/devolver-itens`,
-        devolverForm,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      await api.post(`/condicionais-fornecedor/${selectedCondicional._id}/devolver-itens`, devolverForm);
       setDevolverModalOpen(false);
       fetchCondicionais();
     } catch (err: unknown) {
@@ -163,12 +154,7 @@ function CondicionaisFornecedor() {
     if (!addProdutoForm.condicional_id) return;
     if (!addProdutoForm.produto_id) return setError('Selecione um produto válido');
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(
-        `${API_URL}/condicionais-fornecedor/${addProdutoForm.condicional_id}/adicionar-produto`,
-        { produto_id: addProdutoForm.produto_id, quantidade: addProdutoForm.quantidade },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.post(`/condicionais-fornecedor/${addProdutoForm.condicional_id}/adicionar-produto`, { produto_id: addProdutoForm.produto_id, quantidade: addProdutoForm.quantidade });
       setAddProdutoModalOpen(false);
       fetchCondicionais();
     } catch (err: unknown) {
@@ -179,8 +165,7 @@ function CondicionaisFornecedor() {
 
   const handleCreateCondicionalFornecedor = async () => {
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_URL}/condicionais-fornecedor/`, createCondFornecedorForm, { headers: { Authorization: `Bearer ${token}` } });
+      await api.post(`/condicionais-fornecedor/`, createCondFornecedorForm);
       setCreateCondFornecedorOpen(false);
       fetchCondicionais();
     } catch (err: unknown) {
