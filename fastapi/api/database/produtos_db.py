@@ -2,6 +2,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from ..models.produtos import Produto
 import os
+import logging
 from ..database.tags_db import get_or_create_tag_by_descricao, get_tag_by_id
 from ..database.entradas_db import create_entrada, get_entrada_by_id
 from bson import ObjectId
@@ -51,6 +52,8 @@ async def create_produto(produto: Produto):
     has_cond_cliente = any(itm.get("condicional_cliente_id") for itm in doc.get("itens", []))
     doc['em_condicional_fornecedor'] = bool(has_cond_fornecedor)
     doc['em_condicional_cliente'] = bool(has_cond_cliente)
+
+    logging.info(f"Creating produto {doc.get('codigo_interno')}: has_cond_fornecedor={has_cond_fornecedor}, em_condicional_fornecedor={doc['em_condicional_fornecedor']}, itens={doc.get('itens')}")
 
     # Insert product
     result = await db.produtos.insert_one(doc)
