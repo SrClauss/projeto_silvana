@@ -11,7 +11,7 @@ import {
   TableRow,
   TablePagination,
   TextField,
-  Button,
+
   IconButton,
   CircularProgress,
   InputAdornment,
@@ -21,6 +21,7 @@ import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import type { Tag } from '../../types';
 import TagsModal from './components/TagsModal';
+import ShadowIconButton from '../../components/ShadowIconButton';
 
 const TagsPage: React.FC = () => {
   const theme = useTheme();
@@ -83,6 +84,7 @@ const TagsPage: React.FC = () => {
     setOpenModal(true);
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleView = async (_id: string) => {
     // Implementar se necessário
   };
@@ -97,22 +99,30 @@ const TagsPage: React.FC = () => {
   };
 
   const handleCreate = async () => {
-    if (!newTag.trim()) return;
+    const trimmed = newTag.trim();
+    if (!trimmed) return;
+    if (/\s/.test(newTag)) {
+      alert('Tags não podem conter espaços. Use underscore (_) ou hífen (-) em vez de espaços.');
+      return;
+    }
     setCreating(true);
     try {
       const token = localStorage.getItem('token');
       if (editingId) {
-        await axios.put(`/produtos/tags/${editingId}`, { descricao: newTag.trim() }, { headers: { Authorization: `Bearer ${token}` } });
-        setTags((t) => t.map(x => x._id === editingId ? { ...x, descricao: newTag.trim() } : x));
+        await axios.put(`/produtos/tags/${editingId}`, { descricao: trimmed }, { headers: { Authorization: `Bearer ${token}` } });
+        setTags((t) => t.map(x => x._id === editingId ? { ...x, descricao: trimmed } : x));
       } else {
-        const res = await axios.post('/produtos/tags/', { descricao: newTag.trim() }, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await axios.post('/produtos/tags/', { descricao: trimmed }, { headers: { Authorization: `Bearer ${token}` } });
         setTags((t) => [...t, res.data]);
       }
       setOpenModal(false);
       setNewTag('');
       setEditingId(null);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      if (e?.response?.data?.detail) {
+        alert(String(e.response.data.detail));
+      }
     } finally { setCreating(false); }
   };
 
@@ -122,11 +132,13 @@ const TagsPage: React.FC = () => {
     <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
       <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Tags</Typography>
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
-        <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 2, }}>
           <TextField
             label="Buscar tags"
             variant="outlined"
+            size="small"  
             value={searchQuery}
+            sx={{ flex: 1 }}
             onChange={(e) => setSearchQuery(e.target.value)}
             InputProps={{
               startAdornment: (
@@ -135,11 +147,14 @@ const TagsPage: React.FC = () => {
                 </InputAdornment>
               ),
             }}
-            fullWidth
           />
-          <Button size="small" variant="contained" startIcon={<Add />} onClick={handleOpenModal} sx={{  boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}>
-            Adicionar Tag
-          </Button>
+         <ShadowIconButton
+            variant="primary"
+            onClick={handleOpenModal}
+            tooltip="Adicionar Tag"
+          >
+            <Add />
+          </ShadowIconButton>
         </Box>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>

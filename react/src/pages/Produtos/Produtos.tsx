@@ -25,12 +25,13 @@ import {
   ToggleButtonGroup,
   Divider,
   Stack,
+
 } from '@mui/material';
 import { Add, Search, Visibility, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import api from '../../lib/axios';
 import { isAxiosError } from 'axios';
-import type { Tag, Produto, Item, Saida, Entrada} from '../../types';
+import type { Tag, Produto, Item, Saida, Entrada } from '../../types';
 
 interface ProdutoData {
   codigo_interno: string;
@@ -46,7 +47,8 @@ interface ProdutoData {
   preco_custo: number;
   preco_venda: number;
 }
-import ProdutoModal from './components/ProdutoModal';
+import ProdutoModal from '../../components/ProdutoModal';
+import ShadowIconButton from '../../components/ShadowIconButton';
 
 const Produtos: React.FC = () => {
   const theme = useTheme();
@@ -63,8 +65,6 @@ const Produtos: React.FC = () => {
   const [openModal, setOpenModal] = useState(false);
   const [loadingProdutos, setLoadingProdutos] = useState(false);
   const [loadingTags, setLoadingTags] = useState(false);
-  const [addingProduto, setAddingProduto] = useState(false);
-  const [codigoError, setCodigoError] = useState<string | null>(null);
   const debounceRef = useRef<number | null>(null);
 
   const [newProduto, setNewProduto] = useState({
@@ -177,8 +177,17 @@ const Produtos: React.FC = () => {
   };
 
   const createTag = async (descricao: string) => {
+    const trimmed = descricao.trim();
+    if (!trimmed) {
+      alert('Descrição da tag não pode ser vazia.');
+      return null;
+    }
+    if (/\s/.test(descricao)) {
+      alert('Tags não podem conter espaços. Use underscore (_) ou hífen (-) em vez de espaços.');
+      return null;
+    }
     try {
-      const res = await api.post('/produtos/tags/', { descricao });
+      const res = await api.post('/produtos/tags/', { descricao: trimmed });
       const created = res.data;
       // update local caches
       setTags((t) => [...t, created]);
@@ -202,7 +211,6 @@ const Produtos: React.FC = () => {
   const fetchLastCodigoSuggestion = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
-      setCodigoError('Faça login para obter sugestão de código interno.');
       return;
     }
 
@@ -214,7 +222,6 @@ const Produtos: React.FC = () => {
     } catch (error) {
       // Tratar 401 separadamente para evitar logs desnecessários e informar o usuário
       if (isAxiosError(error) && error.response?.status === 401) {
-        setCodigoError('Sessão expirada. Faça login novamente.');
         // opcional: limpar token e redirecionar para login
         // localStorage.removeItem('token');
         // window.location.href = '/login';
@@ -223,10 +230,9 @@ const Produtos: React.FC = () => {
       console.error('Erro ao buscar ultimo codigo interno:', error);
     }
   };
-  
+
   const handleOpenModal = async () => {
     setEditingId(null);
-    setCodigoError(null);
     setNewProduto({ codigo_interno: '', codigo_externo: '', descricao: '', marca_fornecedor: '', sessao: '', preco_custo: 0, preco_venda: 0, tags: [], itens: [] });
     setOpenModal(true);
   };
@@ -265,25 +271,23 @@ const Produtos: React.FC = () => {
       console.error('Erro ao deletar produto:', error);
     }
   };
-  const handleAddProduto = async (itensParam?: Item[]) => {
-    setAddingProduto(true);
+  const handleAddProduto = async (produto: any) => {
     try {
       // token é gerenciado automaticamente pela instância `api`
-      const itensToUse = itensParam ?? newProduto.itens ?? [];
       const produtoData: ProdutoData = {
-        codigo_interno: newProduto.codigo_interno,
-        codigo_externo: newProduto.codigo_externo,
-        descricao: newProduto.descricao,
-        marca_fornecedor: newProduto.marca_fornecedor,
-        sessao: newProduto.sessao,
-        itens: itensToUse,
+        codigo_interno: produto.codigo_interno,
+        codigo_externo: produto.codigo_externo,
+        descricao: produto.descricao,
+        marca_fornecedor: produto.marca_fornecedor,
+        sessao: produto.sessao,
+        itens: produto.itens,
         saidas: [],
         entradas: [],
         em_condicional: 0,
-        tags: newProduto.tags,
+        tags: produto.tags,
         // convert to cents
-        preco_custo: Math.round((newProduto.preco_custo || 0) * 100),
-        preco_venda: Math.round((newProduto.preco_venda || 0) * 100),
+        preco_custo: produto.preco_custo,
+        preco_venda: produto.preco_venda,
       };
 
       if (editingId) {
@@ -309,11 +313,8 @@ const Produtos: React.FC = () => {
     } catch (error) {
       console.error('Erro ao adicionar/atualizar produto:', error);
       if (isAxiosError(error) && error?.response?.status === 400 && error.response.data?.detail === 'codigo_interno already exists') {
-        setCodigoError('Código interno já existe. Buscando nova sugestão...');
         await fetchLastCodigoSuggestion();
       }
-    } finally {
-      setAddingProduto(false);
     }
   };
 
@@ -371,69 +372,77 @@ const Produtos: React.FC = () => {
       </Typography>
 
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: { xs: 2, md: 3 }, borderRadius: 2, maxWidth: '100%' }}>
-        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center' }}>
-          <TextField
-            size="small"
-            label="Buscar por descrição"
-            variant="outlined"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ minWidth: { sm: 160 }, width: { xs: '100%', sm: 'auto' } }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  {loadingProdutos ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Autocomplete
-            multiple
-            size="small"
-            options={tagOptions}
-            getOptionLabel={(option) => option.descricao}
-            isOptionEqualToValue={(option, value) => option._id === value._id}
-            value={selectedTags}
-            onChange={(_event, newValue) => setSelectedTags(newValue)}
-            inputValue={tagInputValue}
-            onInputChange={(_e, v) => setTagInputValue(v)}
-            renderTags={(value, getTagProps) =>
-              value.map((option, index) => (
-                <Chip
-                  variant="outlined"
-                  label={option.descricao}
-                  {...getTagProps({ index })}
-                  sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }}
-                />
-              ))
-            }
-            renderInput={(params) => (
-              <TextField {...params} size="small" label="Filtrar por tags" sx={{ minWidth: { sm: 160 }, width: { xs: '100%', sm: 'auto' } }} />
-            )}
-            sx={{ minWidth: { sm: 160 }, width: { xs: '100%', sm: 'auto' } }}
-            loading={loadingTags}
-          />
-          {/* modo de filtro: E (AND) / OU (OR) */}
-          <ToggleButtonGroup
-            value={tagFilterMode}
-            exclusive
-            size="small"
-            onChange={(_e, v) => { if (v) setTagFilterMode(v as 'AND'|'OR'); }}
-            sx={{ ml: 1 }}
-            aria-label="Modo filtro por tags"
-          >
-            <ToggleButton value="OR" aria-label="Ou">OU</ToggleButton>
-            <ToggleButton value="AND" aria-label="E">E</ToggleButton>
-          </ToggleButtonGroup>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleOpenModal}
-            sx={{ boxShadow: '0 6px 12px rgba(0,0,0,0.18)', textTransform: 'uppercase', fontWeight: 700 }}
-          >
-            Adicionar Produto
-          </Button>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2}}>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' } }}>
+            <TextField
+              size="small"
+              label="Buscar por descrição"
+              variant="outlined"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{width: '100%', maxWidth: '100%'}}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    {loadingProdutos ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Autocomplete
+              multiple
+              size="small"
+              options={tagOptions}
+              getOptionLabel={(option) => option.descricao}
+              isOptionEqualToValue={(option, value) => option._id === value._id}
+              value={selectedTags}
+              onChange={(_event, newValue) => setSelectedTags(newValue)}
+              inputValue={tagInputValue}
+              sx={{ width: '100%'}}
+              onInputChange={(_e, v) => setTagInputValue(v)}
+              renderTags={(value, getTagProps) =>
+                value.map((option, index) => (
+                  <Chip
+                    variant="outlined"
+                    label={option.descricao}
+                    {...getTagProps({ index })}
+                    sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }}
+                  />
+                ))
+              }
+              renderInput={(params) => (
+                <TextField {...params} size="small" label="Filtrar por tags" sx={{ minWidth: { sm: 160 }, width: '100%' }} />
+              )}
+              loading={loadingTags}
+            />
+
+                   <ShadowIconButton
+                size="small"
+                tooltip='Adicionar Produto'
+                variant='primary'
+                onClick={handleOpenModal}
+              >
+                <Add />
+              </ShadowIconButton>
+          </Box>
+          <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, justifyContent: 'center', alignItems: 'center' }}>
+
+
+            <ToggleButtonGroup
+              value={tagFilterMode}
+              exclusive
+              size="small"
+              onChange={(_e, v) => { if (v) setTagFilterMode(v as 'AND' | 'OR'); }}
+              sx={{ ml: 1 }}
+              aria-label="Modo filtro por tags"
+            >
+              <ToggleButton value="OR" aria-label="Ou">QUALQUER TAG (OU)</ToggleButton>
+              <ToggleButton value="AND" aria-label="E">TODAS AS TAGS (E)</ToggleButton>
+            </ToggleButtonGroup>
+
+
+       
+          </Box>
         </Box>
       </Paper>
 
@@ -642,10 +651,7 @@ const Produtos: React.FC = () => {
         editingId={editingId}
         newProduto={newProduto}
         setNewProduto={setNewProduto}
-        codigoError={codigoError}
-        setCodigoError={setCodigoError}
-        addingProduto={addingProduto}
-        handleAddProduto={handleAddProduto}
+        onAddProduto={handleAddProduto}
         modalTagInput={modalTagInput}
         setModalTagInput={setModalTagInput}
         tagOptions={tagOptions}

@@ -11,15 +11,15 @@ import {
   TableRow,
   TablePagination,
   TextField,
-  Button,
   CircularProgress,
-  InputAdornment,
   IconButton,
 } from '@mui/material';
-import { Add, Search, Visibility, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add, Visibility, Edit as EditIcon, Delete as DeleteIcon, ShoppingCart } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import type { Cliente } from '../../types';
+import ShadowIconButton from '../../components/ShadowIconButton';
 
 interface ClienteData {
   nome: string;
@@ -38,18 +38,20 @@ interface ClienteData {
 
 import ClienteModal from './components/ClienteModal';
 import ClienteViewModal from './components/ClienteViewModal';
+import DeleteModal from '../../components/DeleteModal';
 
 const Clientes: React.FC = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [, setClientes] = useState<Cliente[]>([]);
   const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [page, setPage] = useState(0);
+  const [openDeleteModal, setOpenDeleteModal] = useState(false);
+  const [entityIdToDelete, setEntityIdToDelete] = useState<string | null>(null);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [searchQuery, setSearchQuery] = useState('');
   const [nameFilter, setNameFilter] = useState('');
-  const debounceRef = useRef<number | null>(null);
   const nameDebounceRef = useRef<number | null>(null);
-
+  const [cpfFilter, setCpfFilter] = useState('');
   const [openModal, setOpenModal] = useState(false);
   const [openViewModal, setOpenViewModal] = useState(false);
   const [viewCliente, setViewCliente] = useState<Cliente | null>(null);
@@ -71,23 +73,78 @@ const Clientes: React.FC = () => {
     },
     cpf: '',
   });
+  const getByCPF = async (cpf: string): Promise<Cliente[]> => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Buscando CPF:', cpf);
 
+      // Primeiro tentar busca geral
+      const res = await axios.get(`/clientes/?q=${encodeURIComponent(cpf)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const clientes: Cliente[] = res.data;
+      console.log('Clientes retornados da busca geral:', clientes);
+
+      // Filtrar apenas clientes com CPF exato
+      const clienteExato = clientes.filter(cliente => {
+        console.log('Comparando:', cliente.cpf, '===', cpf, '?', cliente.cpf === cpf);
+        return cliente.cpf === cpf;
+      });
+
+      console.log('Clientes filtrados por CPF exato:', clienteExato);
+
+      // Se não encontrou, tentar busca sem query para ver todos os clientes
+      if (clienteExato.length === 0) {
+        console.log('Nenhum cliente encontrado com CPF exato, buscando todos os clientes...');
+        const allRes = await axios.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
+        const allClientes: Cliente[] = allRes.data;
+        console.log('Todos os clientes:', allClientes.map(c => ({ nome: c.nome, cpf: c.cpf })));
+
+        const clienteFromAll = allClientes.filter(cliente => cliente.cpf === cpf);
+        console.log('Cliente encontrado em busca completa:', clienteFromAll);
+        return clienteFromAll;
+      }
+
+      return clienteExato;
+    } catch (error) {
+      console.error('Erro ao buscar cliente por CPF:', error);
+      return [];
+    }
+  }
+  const handleOpenDeleteModal = (id: string) => {
+    setEntityIdToDelete(id);
+    setOpenDeleteModal(true);
+  };
+
+  const handleDelete = async () => {
+    if (!entityIdToDelete) return;
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`/clientes/${entityIdToDelete}`, { headers: { Authorization: `Bearer ${token}` } });
+      await loadClientes();
+    } catch (error) {
+      console.error('Erro ao deletar cliente:', error);
+    } finally {
+      setOpenDeleteModal(false);
+      setEntityIdToDelete(null);
+    }
+  }
   useEffect(() => {
     loadClientes();
   }, []);
 
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = window.setTimeout(() => {
-      filterClientes();
-    }, 300);
-  }, [searchQuery]);
 
-  // Debounce name filter and call backend
+
+  const handleCpfKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' && cpfFilter.trim()) {
+      loadClientesByCPF(cpfFilter.trim());
+    }
+  };
+
   useEffect(() => {
     if (nameDebounceRef.current) window.clearTimeout(nameDebounceRef.current);
     nameDebounceRef.current = window.setTimeout(() => {
-      loadClientes(nameFilter);
+      if (!cpfFilter.trim()) {
+        loadClientes(nameFilter);
+      }
     }, 300) as unknown as number;
     return () => {
       if (nameDebounceRef.current) window.clearTimeout(nameDebounceRef.current);
@@ -96,6 +153,7 @@ const Clientes: React.FC = () => {
 
   const loadClientes = async (q?: string) => {
     setLoadingClientes(true);
+  
     try {
       const token = localStorage.getItem('token');
       let res;
@@ -115,9 +173,20 @@ const Clientes: React.FC = () => {
     }
   };
 
-  const filterClientes = () => {
-    loadClientes(searchQuery);
+  const loadClientesByCPF = async (cpf: string) => {
+    setLoadingClientes(true);
+    try {
+      const clientes = await getByCPF(cpf);
+      setClientes(clientes);
+      setFilteredClientes(clientes);
+    } catch (error) {
+      console.error('Erro ao carregar cliente por CPF:', error);
+      setFilteredClientes([]);
+    } finally {
+      setLoadingClientes(false);
+    }
   };
+
 
   const handleChangePage = (_event: unknown, newPage: number) => {
     setPage(newPage);
@@ -167,16 +236,6 @@ const Clientes: React.FC = () => {
     setOpenViewModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm('Confirma exclusão deste cliente?')) return;
-    try {
-      const token = localStorage.getItem('token');
-      await axios.delete(`/clientes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      await loadClientes();
-    } catch (error) {
-      console.error('Erro ao deletar cliente:', error);
-    }
-  };
 
   const fetchClienteById = async (id: string) => {
     try {
@@ -232,51 +291,42 @@ const Clientes: React.FC = () => {
       <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Clientes</Typography>
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
         <Box sx={{ display: 'flex', gap:2 , alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, mb: 2 }}>
-          <TextField
-            size="small"
-            label="Buscar por nome ou CPF"
-            variant="outlined"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ minWidth: { sm: 320 }, width: { xs: '100%', sm: 'auto' } }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  {loadingClientes ? <CircularProgress size={16} sx={{ color: theme.palette.secondary.main }} /> : <Search sx={{ color: theme.palette.secondary.main }} />}
-                </InputAdornment>
-              ),
-            }}
-          />
+        
 
           <TextField
             size="small"
             label="Filtrar por nome"
             variant="outlined"
             value={nameFilter}
+
+            sx={{width: '100%'}}
             onChange={(e) => setNameFilter(e.target.value)}
-            sx={{ minWidth: { sm: 160 }, width: { xs: '100%', sm: 'auto' } }}
           />
+
+          <TextField
+            size="small"
+            label="Buscar por CPF"
+            variant="outlined"
+            value={cpfFilter}
+            sx={{width: '100%'}}
+            onChange={(e) => setCpfFilter(e.target.value)}
+            onKeyDown={handleCpfKeyDown}
+            placeholder="Digite o CPF e pressione Enter"
+          />
+          
 
         
 
-          <Button
+          <ShadowIconButton
+            tooltip="Adicionar Cliente"
             size="small"
-            variant="contained"
-            startIcon={<Add />}
+            variant="primary"
             onClick={handleOpenModal}
-            sx={{
-         
-              boxShadow: '0 8px 18px rgba(0,0,0,0.25)',
-              borderRadius: '10px',
-              width: { xs: '100%', sm: 'auto' },
-              px: 3,
-              py: 1.2,
-              textTransform: 'uppercase',
-              fontWeight: 700,
-            }}
+            shadowIntensity="strong"
+            
           >
-            Adicionar Cliente
-          </Button>
+            <Add />
+          </ShadowIconButton>
         </Box>
       </Paper>
 
@@ -309,13 +359,16 @@ const Clientes: React.FC = () => {
                         <TableCell>{cliente.telefone}</TableCell>
                         <TableCell>{cliente.cpf}</TableCell>
                         <TableCell>
+                          <IconButton size="small" onClick={() => navigate(`/condicionais-cliente/criar?cliente_id=${cliente._id}`)} aria-label="criar condicional" sx={{ color: theme.palette.primary.main, mr: 1 }}>
+                            <ShoppingCart fontSize="small" />
+                          </IconButton>
                           <IconButton size="small" onClick={() => handleView(cliente._id)} aria-label="ver" sx={{ color: theme.palette.primary.main, mr: 1 }}>
                             <Visibility fontSize="small" />
                           </IconButton>
                           <IconButton size="small" onClick={() => handleEdit(cliente._id)} aria-label="editar" sx={{ color: theme.palette.primary.main, mr: 1 }}>
                             <EditIcon fontSize="small" />
                           </IconButton>
-                          <IconButton size="small" onClick={() => handleDelete(cliente._id)} aria-label="deletar" sx={{ color: theme.palette.error?.main || 'red' }}>
+                          <IconButton size="small" onClick={() => handleOpenDeleteModal(cliente._id)} aria-label="deletar" sx={{ color: theme.palette.error?.main || 'red' }}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </TableCell>
@@ -346,7 +399,15 @@ const Clientes: React.FC = () => {
         addingCliente={addingCliente}
         handleAddCliente={handleAddCliente}
       />
+      <DeleteModal
 
+        open={openDeleteModal}
+        onClose={() => setOpenDeleteModal(false)}
+        onConfirm={handleDelete}
+        title="Confirmar Deleção"
+        message="Tem certeza que deseja deletar este cliente?"
+        entityId={entityIdToDelete || undefined}
+      />
       <ClienteViewModal
         open={openViewModal}
         onClose={() => { setOpenViewModal(false); setViewCliente(null); }}

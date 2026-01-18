@@ -70,8 +70,11 @@ async def search_tags_endpoint(q: str):
 @router.post("/tags/", dependencies=[Depends(get_current_user)])
 async def create_tag_endpoint(tag: dict):
     descricao = tag.get('descricao')
-    if not descricao:
+    if not descricao or not str(descricao).strip():
         raise HTTPException(status_code=400, detail="descricao is required")
+    import re
+    if re.search(r"\s", descricao):
+        raise HTTPException(status_code=400, detail="descricao cannot contain spaces")
     created = await get_or_create_tag_by_descricao(descricao)
     return created
 
@@ -99,3 +102,10 @@ async def get_last_codigo_interno_endpoint():
     else:
         suggested = "1"
     return {"last": last, "suggested": suggested}
+
+
+@router.get('/codigo-interno/exists', dependencies=[Depends(get_current_user)])
+async def exists_codigo_interno_endpoint(codigo: str):
+    """Retorna se um codigo_interno já existe (true/false)."""
+    exists = await exists_codigo_interno(codigo)
+    return {"exists": exists}

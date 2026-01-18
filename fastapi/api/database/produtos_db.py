@@ -204,7 +204,8 @@ async def search_produtos(query: str):
             {"marca_fornecedor": regex},
             {"sessao": regex},
             {"codigo_interno": regex},
-            {"descricao": regex}
+            {"descricao": regex},
+            {"tags.descricao": regex}
         ]
     }).to_list(None)
 

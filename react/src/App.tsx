@@ -9,9 +9,11 @@ import Sessoes from './pages/Sessoes/Sessoes';
 import Vendas from './pages/Vendas/Vendas';
 import CriarVenda from './pages/Vendas/CriarVenda';
 import CondicionaisFornecedor from './pages/CondicionaisFornecedor/CondicionaisFornecedor';
+import CriarCondicionalFornecedor from './pages/CondicionaisFornecedor/CriarCondicionalFornecedor';
 import CondicionaisCliente from './pages/CondicionaisCliente/CondicionaisCliente';
 import CriarCondicionalCliente from './pages/CondicionaisCliente/CriarCondicionalCliente';
 import LoggedLayout from './components/LoggedLayout';
+import DevolucaoCondicionalFornecedor from './pages/CondicionaisFornecedor/DevolucaoCondicionalFornecedor';
 
 function App() {
   return (
@@ -27,8 +29,10 @@ function App() {
         <Route path="/vendas" element={<LoggedLayout activePage="/vendas"><Vendas /></LoggedLayout>} />
         <Route path="/vendas/criar" element={<LoggedLayout activePage="/vendas"><CriarVenda /></LoggedLayout>} />
         <Route path="/condicionais-fornecedor" element={<LoggedLayout activePage="/condicionais-fornecedor"><CondicionaisFornecedor /></LoggedLayout>} />
+        <Route path="/condicionais-fornecedor/criar" element={<LoggedLayout activePage="/condicionais-fornecedor"><CriarCondicionalFornecedor /></LoggedLayout>} />
         <Route path="/condicionais-cliente" element={<LoggedLayout activePage="/condicionais-cliente"><CondicionaisCliente /></LoggedLayout>} />
         <Route path="/condicionais-cliente/criar" element={<LoggedLayout activePage="/condicionais-cliente"><CriarCondicionalCliente /></LoggedLayout>} />
+        <Route path="/condicionais-fornecedor/devolucao" element={<LoggedLayout activePage="/condicionais-fornecedor"><DevolucaoCondicionalFornecedor /></LoggedLayout>} />
         <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
     </Router>

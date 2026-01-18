@@ -37,3 +37,8 @@ async def update_user(user_id: str, update_data: UserUpdate):
 
 async def delete_user(user_id: str):
     return await db.users.delete_one({"_id": user_id})
+
+
+
+async def find_by_cpf(cpf: str):
+    return await db.users.find_one({"cpf": cpf})

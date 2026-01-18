@@ -25,9 +25,13 @@ import {
   ListItemText,
   IconButton,
   Divider,
+  Autocomplete,
+  CircularProgress,
+  Tooltip,
 } from '@mui/material';
-import type { CalcResult, SaleDraft, SaleItem, CondicionalCliente as CondicionalClienteType, CalcProduct, CondicionalProduto } from '../../types';
-import { CheckCircle as CheckCircleIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
+import type { CalcResult, SaleDraft, SaleItem, CondicionalCliente as CondicionalClienteType, CalcProduct, CondicionalProduto, Produto } from '../../types';
+import { CheckCircle as CheckCircleIcon, Delete as DeleteIcon, Add } from '@mui/icons-material';
 import api from '../../lib/axios';
 
 
@@ -36,12 +40,22 @@ function CondicionaisCliente() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
+  const navigate = useNavigate();
+  
   const [processarModalOpen, setProcessarModalOpen] = useState(false);
   const [selectedCondicional, setSelectedCondicional] = useState<CondicionalClienteType | null>(null);
   const [codigosDevolvidos, setCodigosDevolvidos] = useState<string[]>([]);
   const [novoCodigoInput, setNovoCodigoInput] = useState('');
 
-  const navigate = useNavigate();
+  const theme = useTheme();
+
+  // adicionar produto modal
+  const [addProdutoModalOpen, setAddProdutoModalOpen] = useState(false);
+  const [addProdutoForm, setAddProdutoForm] = useState({ produto_id: '', quantidade: 1, condicional_id: '' });
+
+  // product autocomplete
+  const [productOptions, setProductOptions] = useState<Produto[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
 
 
 
@@ -53,6 +67,22 @@ function CondicionaisCliente() {
     } catch {
       setError('Erro ao carregar condicionais de cliente');
       setLoading(false);
+    }
+  };
+
+  const searchProducts = async (q: string) => {
+    if (!q || q.trim() === '') {
+      setProductOptions([]);
+      return;
+    }
+    setLoadingProducts(true);
+    try {
+      const response = await api.get(`/produtos/search?q=${encodeURIComponent(q)}`);
+      setProductOptions(response.data);
+    } catch (error) {
+      console.error('Erro ao buscar produtos:', error);
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
@@ -76,6 +106,19 @@ function CondicionaisCliente() {
 
   const handleRemoveCodigo = (index: number) => {
     setCodigosDevolvidos(codigosDevolvidos.filter((_, i) => i !== index));
+  };
+
+  const handleAddProduto = async () => {
+    if (!addProdutoForm.condicional_id) return;
+    if (!addProdutoForm.produto_id) return setError('Selecione um produto válido');
+    try {
+      await api.post(`/condicionais-cliente/${addProdutoForm.condicional_id}/adicionar-produto`, { produto_id: addProdutoForm.produto_id, quantidade: addProdutoForm.quantidade });
+      setAddProdutoModalOpen(false);
+      fetchCondicionais();
+    } catch (err: unknown) {
+      console.error('Erro ao adicionar produto ao condicional', err);
+      setError('Erro ao adicionar produto');
+    }
   };
 
   const [calcResult, setCalcResult] = useState<CalcResult | null>(null);
@@ -176,24 +219,16 @@ function CondicionaisCliente() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 3 }}>
-        <Typography variant="h4" component="h1">
-          Condicionais de Cliente
-        </Typography>
-        <Button variant="contained" onClick={() => navigate('/condicionais-cliente/criar')}>Adicionar Condicional Cliente</Button>
-      </Box>
+      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>
+        Condicionais Cliente
+      </Typography>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="body2" color="text.secondary">
-            Gerenciar produtos enviados em condicional para clientes. 
-            Ao processar o retorno, informe os códigos internos dos produtos devolvidos. 
-            Os produtos não devolvidos serão automaticamente registrados como vendas.
-          </Typography>
-        </CardContent>
-      </Card>
+      
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/condicionais-cliente/criar')}>Adicionar</Button>
+      </Box>
 
       <TableContainer component={Paper}>
         <Table>
@@ -247,6 +282,14 @@ function CondicionaisCliente() {
                         onClick={() => handleViewCondicional(condicional._id)}
                       >
                         Visualizar
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        onClick={() => { setAddProdutoForm({ produto_id: '', quantidade: 1, condicional_id: condicional._id }); setAddProdutoModalOpen(true); }}
+                        disabled={!condicional.ativa}
+                      >
+                        Adicionar Produto
                       </Button>
                       <Button
                         variant="contained"
@@ -519,6 +562,37 @@ function CondicionaisCliente() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add Produto Modal */}
+      <Dialog open={addProdutoModalOpen} onClose={() => setAddProdutoModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Adicionar Produto ao Condicional</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Autocomplete
+              size="small"
+              options={productOptions}
+              getOptionLabel={(opt: Produto) => `${opt.codigo_interno} — ${opt.descricao}`}
+              loading={loadingProducts}
+              onInputChange={(_e, v) => { if (v && v.length >= 2) searchProducts(v); }}
+              onChange={(_e, value) => setAddProdutoForm({ ...addProdutoForm, produto_id: value ? value._id : '' })}
+              renderInput={(params) => (
+                <TextField {...params} label="Produto (código/descrição)" size="small" InputProps={{ ...params.InputProps, endAdornment: (<>{loadingProducts ? <CircularProgress color="inherit" size={16} /> : null}{params.InputProps.endAdornment}</>) }} />
+              )}
+              sx={{ mb: 1 }}
+            />
+            <TextField label="Quantidade" type="number" value={addProdutoForm.quantidade} onChange={(e) => setAddProdutoForm({ ...addProdutoForm, quantidade: Math.max(1, parseInt(e.target.value) || 1) })} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAddProdutoModalOpen(false)}>Cancelar</Button>
+          <Tooltip title="Adicionar Produto">
+            <IconButton onClick={handleAddProduto}>
+              <Add />
+            </IconButton>
+          </Tooltip>
+        </DialogActions>
+      </Dialog>
+
     </Box>
   );
 }

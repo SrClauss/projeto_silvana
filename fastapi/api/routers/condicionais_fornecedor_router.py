@@ -3,11 +3,14 @@ from pydantic import BaseModel
 from ..models.condicional_fornecedor import CondicionalFornecedor
 from ..database.condicional_fornecedor_db import (
     create_condicional_fornecedor, get_condicional_fornecedores, get_condicional_fornecedor_by_id,
-    update_condicional_fornecedor, delete_condicional_fornecedor,
+    update_condicional_fornecedor, delete_condicional_fornecedor, create_condicional_with_produtos,
     adicionar_produto_condicional_fornecedor, devolver_itens_condicional_fornecedor,
-    get_status_devolucao_condicional_fornecedor
+    get_status_devolucao_condicional_fornecedor, listar_produtos_em_condicional_fornecedor,
+    get_condicional_fornecedor_completa
 )
 from ..routers.auth import get_current_user
+import logging
+import traceback
 
 router = APIRouter()
 
@@ -18,6 +21,10 @@ class AdicionarProdutoRequest(BaseModel):
 class DevolverItensRequest(BaseModel):
     produto_id: str
     quantidade: int
+
+class CondicionalBatchRequest(BaseModel):
+    condicional: dict
+    produtos: list
 
 @router.post("/", dependencies=[Depends(get_current_user)])
 async def create_condicional_fornecedor_endpoint(condicional: CondicionalFornecedor):
@@ -74,6 +81,26 @@ async def adicionar_produto_endpoint(condicional_id: str, request: AdicionarProd
     
     return result
 
+@router.post("/batch-create", dependencies=[Depends(get_current_user)])
+async def create_condicional_with_products_endpoint(request: CondicionalBatchRequest):
+    """
+    Cria uma condicional e insere múltiplos produtos associados em uma única chamada.
+
+    Payload exemplo:
+    {
+      "condicional": { "fornecedor_id": "...", "quantidade_max_devolucao": 10, "observacoes": "..." },
+      "produtos": [ { "codigo_interno": "...", "descricao": "...", "itens": [ { "quantity": 2 } ] }, ... ]
+    }
+    """
+    try:
+        result = await create_condicional_with_produtos(request.condicional, request.produtos)
+        return result
+    except Exception as e:
+        # Log full traceback for debugging purposes
+        logging.exception('Error in batch-create condicional with products')
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/{condicional_id}/devolver-itens", dependencies=[Depends(get_current_user)])
 async def devolver_itens_endpoint(condicional_id: str, request: DevolverItensRequest):
     """
@@ -100,3 +127,17 @@ async def get_status_devolucao_endpoint(condicional_id: str, produto_id: str = N
         raise HTTPException(status_code=404, detail=result["error"])
     
     return result
+
+@router.get("/{condicional_id}/produtos", dependencies=[Depends(get_current_user)])
+async def listar_produtos_endpoint(condicional_id: str):
+    """
+    Lista os produtos associados a uma condicional de fornecedor.
+    """
+    try:
+        result = await listar_produtos_em_condicional_fornecedor(condicional_id)
+        return result
+    except Exception as e:
+        logging.exception('Error listing products in condicional fornecedor')
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    

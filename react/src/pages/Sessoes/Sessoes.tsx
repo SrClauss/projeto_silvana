@@ -11,7 +11,6 @@ import {
   TableRow,
   TablePagination,
   TextField,
-  Button,
   IconButton,
   CircularProgress,
   InputAdornment,
@@ -21,6 +20,7 @@ import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import type { Sessao } from '../../types';
 import SessaoModal from './components/SessaoModal';
+import ShadowIconButton from '../../components/ShadowIconButton';
 
 const Sessoes: React.FC = () => {
   const theme = useTheme();
@@ -84,7 +84,13 @@ const Sessoes: React.FC = () => {
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField size="small" placeholder="Buscar..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} InputProps={{ startAdornment: (<InputAdornment position="start"><Search sx={{ color: theme.palette.secondary.main }} /></InputAdornment>) }} sx={{ flex: 1 }} />
-          <Button size="small" variant="contained" startIcon={<Add />} onClick={() => { setEditingSessao(null); setModalOpen(true); }}>Adicionar</Button>
+          <ShadowIconButton
+            variant="primary"
+            onClick={() => { setEditingSessao(null); setModalOpen(true); }}
+            tooltip= 'Adicionar Sessões'
+          >
+            <Add />
+          </ShadowIconButton>
         </Box>
 
         {loading ? (

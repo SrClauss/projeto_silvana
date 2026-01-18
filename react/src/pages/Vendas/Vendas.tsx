@@ -28,6 +28,7 @@ import api from '../../lib/axios';
 import { useNavigate } from 'react-router-dom';
 import type { Saida, Tag } from '../../types';
 import { Add as AddIcon, Delete } from '@mui/icons-material';
+import ShadowIconButton from '../../components/ShadowIconButton';
 
 function Vendas() {
   const today = new Date();
@@ -49,7 +50,7 @@ function Vendas() {
   const [tagOptions, setTagOptions] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
- 
+
 
 
 
@@ -161,8 +162,9 @@ function Vendas() {
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Paper sx={{ p: 2, mb: 2, gap: 1, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ width: '100%', gap: 1, display: 'flex', flexDirection: { xs: 'column', sm: 'row' } }}>
+
           <TextField
             label="Data Início"
             type="date"
@@ -170,7 +172,7 @@ function Vendas() {
             onChange={(e) => setDateFrom(e.target.value)}
             InputLabelProps={{ shrink: true }}
             size="small"
-            sx={{ width: { xs: '100%', sm: 'auto' } }}
+            sx={{ width: '100%' }}
           />
           <TextField
             label="Data Fim"
@@ -179,8 +181,10 @@ function Vendas() {
             onChange={(e) => setDateTo(e.target.value)}
             InputLabelProps={{ shrink: true }}
             size="small"
-            sx={{ width: { xs: '100%', sm: 'auto' } }}
+            sx={{ width: '100%' }}
           />
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
           <TextField
             label="Pesquisar Produto"
             placeholder="Descrição ou código"
@@ -188,7 +192,7 @@ function Vendas() {
             value={produtoQuery}
             onChange={(e) => setProdutoQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') { setProdutoId(''); fetchVendas(); } }}
-            sx={{ flex: { xs: '1 1 100%', sm: '0 1 auto' } }}
+            sx={{ width: '100%' }}
           />
 
           <Autocomplete
@@ -212,16 +216,22 @@ function Vendas() {
             renderInput={(params) => (
               <TextField {...params} label="Filtrar por tags" placeholder="Pesquisar tags" size="small" />
             )}
-            sx={{ width: { xs: '100%', sm: 300 } }}
+            sx={{ width: '100%' }}
           />
-          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 160 } }}>
+
+        </Box>
+        <Box sx={{ display: 'flex',   flexDirection: { xs: 'column', sm: 'row' } }}>
+          <FormControl size="small" sx={{ width: '100%' }}>
             <InputLabel>Ordenar por</InputLabel>
             <Select value={sortBy} label="Ordenar por" onChange={(e) => setSortBy(e.target.value as unknown as 'data' | 'valor')}>
               <MenuItem value="data">Data</MenuItem>
               <MenuItem value="valor">Valor</MenuItem>
             </Select>
           </FormControl>
-          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
+          <Box sx={{width: '100%', display: 'flex',  justifyContent: 'flex-end', gap: 1 }}>
+
+
+          <FormControl size="small" sx={{ width: '100%', ml: { xs: 0, sm: 1  }, gap: { xs: 1, sm: 0 }, mt: { xs: 1, sm: 0 } }}>
             <InputLabel>Ordem</InputLabel>
             <Select value={order} label="Ordem" onChange={(e) => setOrder(e.target.value as unknown as 'desc' | 'asc')}>
               <MenuItem value="desc">Desc</MenuItem>
@@ -229,11 +239,19 @@ function Vendas() {
             </Select>
           </FormControl>
 
-          <Button variant="outlined" size="small" onClick={() => { setPage(0); fetchVendas(); }} sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}>
-            Aplicar
-          </Button>
+          <ShadowIconButton
 
-              <Box sx={{ flex: 1 }} />
+            variant="primary"
+            sx={{ px: 1, mt: { xs: 1, sm: 0 } }}
+            onClick={() => { setPage(0); fetchVendas(); }}
+            tooltip="Adcionar Vendas"
+          >
+            <AddIcon />
+          </ShadowIconButton>
+          </Box>
+
+
+          <Box/>
         </Box>
       </Paper>
 
@@ -275,7 +293,7 @@ function Vendas() {
                         <Delete />
                       </IconButton>
                     </TableCell>
-                    
+
                   </TableRow>
                 ))
               )}
@@ -288,7 +306,7 @@ function Vendas() {
             onPageChange={(_e, newPage) => setPage(newPage)}
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[5,10,25,50]}
+            rowsPerPageOptions={[5, 10, 25, 50]}
           />
         </TableContainer>
       ) : (
@@ -319,7 +337,7 @@ function Vendas() {
             onPageChange={(_e, newPage) => setPage(newPage)}
             rowsPerPage={rowsPerPage}
             onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-            rowsPerPageOptions={[5,10,25,50]}
+            rowsPerPageOptions={[5, 10, 25, 50]}
           />
         </Box>
       )}

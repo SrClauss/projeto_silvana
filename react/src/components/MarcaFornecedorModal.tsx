@@ -7,7 +7,10 @@ import {
   TextField,
   Button,
   Box,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
+import { Add } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import type { MarcaFornecedor } from '../types';
@@ -83,15 +86,16 @@ const MarcaFornecedorModal: React.FC<MarcaFornecedorModalProps> = ({
         </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2, flexDirection: 'column', gap: 1 }}>
-        <Button
-          size="small"
-          onClick={handleSave}
-          variant="contained"
-          sx={{  width: '100%' }}
-          disabled={saving}
-        >
-          {saving ? 'Salvando...' : (editingMarca ? 'Salvar' : 'Adicionar')}
-        </Button>
+        <Tooltip title={editingMarca ? 'Salvar' : 'Adicionar'}>
+          <IconButton
+            size="small"
+            onClick={handleSave}
+            sx={{ width: '100%' }}
+            disabled={saving}
+          >
+            <Add />
+          </IconButton>
+        </Tooltip>
         <Button size="small" onClick={onClose} sx={{ color: theme.palette.primary.main, width: '100%' }}>
           Cancelar
         </Button>

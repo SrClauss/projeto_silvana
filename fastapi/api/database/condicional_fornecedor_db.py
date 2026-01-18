@@ -2,16 +2,22 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from ..models.condicional_fornecedor import CondicionalFornecedor
 from ..models.saidas import Saida
-from datetime import datetime
+from datetime import datetime, date
 import os
+import logging
 
 client = AsyncIOMotorClient(os.getenv("MONGODB_URL", "mongodb://localhost:27017"))
 db = client["projeto_silvana"]
 
 # CRUD para CondicionalFornecedor
 async def create_condicional_fornecedor(condicional: CondicionalFornecedor):
-    result = await db.condicional_fornecedores.insert_one(condicional.dict(by_alias=True))
-    return result.inserted_id
+    # Converte data_condicional para datetime para compatibilidade com BSON
+    condicional_dict = condicional.dict(by_alias=True)
+    if 'data_condicional' in condicional_dict and isinstance(condicional_dict['data_condicional'], date):
+        condicional_dict['data_condicional'] = datetime.combine(condicional_dict['data_condicional'], datetime.min.time())
+    
+    result = await db.condicional_fornecedores.insert_one(condicional_dict)
+    return str(result.inserted_id)
 
 async def get_condicional_fornecedores():
     return await db.condicional_fornecedores.find().to_list(None)
@@ -249,3 +255,84 @@ async def get_status_devolucao_condicional_fornecedor(condicional_id: str, produ
         "quantidade_em_condicional": total_em_condicional,
         "quantidade_vendida": total_vendido
     }
+
+
+# Função auxiliar: cria uma condicional e vários produtos associados em lote
+async def create_condicional_with_produtos(condicional_data: dict, produtos: list):
+    """
+    Cria uma condicional fornecedor e insere múltiplos produtos associados em uma única operação lógica.
+    Retorna (condicional_id, [produto_ids]) em caso de sucesso. Em caso de erro, tenta rollback das inserções parciais.
+    """
+    inserted_produto_ids = []
+    condicional_id = None
+    logging.info('create_condicional_with_produtos called')
+    logging.info('Condicional data: %s', condicional_data)
+    logging.info('Produtos count: %d', len(produtos or []))
+    try:
+        # Criar condicional
+        from ..models.condicional_fornecedor import CondicionalFornecedor as CFModel
+        cf = CFModel(**condicional_data)
+        condicional_id = await create_condicional_fornecedor(cf)
+        logging.info('Created condicional_id: %s', condicional_id)
+
+        # Inserir produtos com referencia a condicional
+        from ..models.produtos import Produto as ProdutoModel
+        # import create_produto localmente to avoid circular imports at module load
+        from ..database.produtos_db import create_produto
+        for idx, prod in enumerate(produtos):
+            logging.info('Processing produto %d: %s', idx, prod.get('codigo_interno') if isinstance(prod, dict) else str(prod))
+            # Garantir que itens têm condicional_fornecedor_id
+            itens = prod.get('itens') or []
+            if not itens:
+                # cria um item default
+                itens = [{'quantity': 1}]
+            # marcar itens com condicional id
+            itens = [dict(**itm, condicional_fornecedor_id=condicional_id) for itm in itens]
+            prod['itens'] = itens
+            # garantir campos obrigatórios que o modelo pode esperar
+            prod.setdefault('entradas', [])
+            prod.setdefault('saidas', [])
+            # criar produto (usa a lógica existente que normaliza tags/entradas)
+            produto_obj = ProdutoModel(**prod)
+            produto_id = await create_produto(produto_obj)
+            logging.info('Inserted produto_id: %s', str(produto_id))
+            inserted_produto_ids.append(produto_id)
+
+        # Atualizar condicional com os produtos criados
+        await db.condicional_fornecedores.update_one(
+            {"_id": condicional_id},
+            {"$set": {"produtos_id": inserted_produto_ids, "updated_at": datetime.utcnow()}}
+        )
+        logging.info('Updated condicional with produtos_id')
+
+        return {"condicional_id": condicional_id, "produto_ids": inserted_produto_ids}
+    except Exception as e:
+        # Em caso de erro, tentar rollback: remover produtos inseridos e a condicional criada
+        try:
+            if inserted_produto_ids:
+                await db.produtos.delete_many({"_id": {"$in": inserted_produto_ids}})
+            if condicional_id:
+                await db.condicional_fornecedores.delete_one({"_id": condicional_id})
+        except Exception:
+            logging.exception('Error during rollback after create_condicional_with_produtos failure')
+            pass
+        raise e
+
+
+
+
+async def listar_produtos_em_condicional_fornecedor(condicional_id: str):
+    """
+    Lista todos os produtos associados a um condicional de fornecedor específico.
+    """
+    condicional = await get_condicional_fornecedor_by_id(condicional_id)
+    if not condicional:
+        return {"error": "Condicional não encontrado"}
+    
+    produtos = []
+    for prod_id in condicional.get("produtos_id", []):
+        produto = await db.produtos.find_one({"_id": prod_id})
+        if produto:
+            produtos.append(produto)
+    
+    return produtos

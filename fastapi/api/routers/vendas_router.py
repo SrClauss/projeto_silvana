@@ -5,7 +5,7 @@ from ..database.vendas_db import (
     processar_venda_produto,
     get_estoque_disponivel_por_produto
 )
-from ..database.saidas_db import get_saidas_filtered
+from ..database.saidas_db import get_saidas_filtered, delete_saida
 from ..database.clientes_db import get_cliente_by_id
 from ..routers.auth import get_current_user
 
@@ -105,3 +105,18 @@ async def listar_vendas(page: int = 1, per_page: int = 20, date_from: str | None
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+
+
+
+@router.delete("/{venda_id}", dependencies=[Depends(get_current_user)])
+async def delete_venda_endpoint(venda_id: str):
+    """
+    Deleta uma venda (saída tipo 'venda') pelo ID.
+    Note que isso não reverte o estoque automaticamente.
+    """
+    result = await delete_saida(venda_id)
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Venda not found")
+    return {"message": "Venda deleted"} 

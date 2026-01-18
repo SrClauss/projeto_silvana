@@ -12,6 +12,23 @@ import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import type { MarcaFornecedor } from '../../../types';
 
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE ?? '/api',
+});
+
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 interface MarcaFornecedorModalProps {
   open: boolean;
   onClose: () => void;
@@ -43,14 +60,28 @@ const MarcaFornecedorModal: React.FC<MarcaFornecedorModalProps> = ({
   const handleSave = async () => {
     setSaving(true);
     try {
-      const token = localStorage.getItem('token');
       let response;
       if (editingMarca) {
-        response = await axios.put(`/marcas-fornecedores/${editingMarca._id}`, { nome, fornecedor }, { headers: { Authorization: `Bearer ${token}` } });
+        response = await api.put(`/marcas-fornecedores/${editingMarca._id}`, { nome, fornecedor });
+        // updated doc expected
+        onSave(response.data);
       } else {
-        response = await axios.post('/marcas-fornecedores/', { nome, fornecedor }, { headers: { Authorization: `Bearer ${token}` } });
+        response = await api.post('/marcas-fornecedores/', { nome, fornecedor });
+        // POST returns an { id: inserted_id } object; fetch the created resource to get full document
+        const createdId = response.data?.id || response.data?._id;
+        if (createdId) {
+          try {
+            const getRes = await api.get(`/marcas-fornecedores/${createdId}`);
+            onSave(getRes.data);
+          } catch (e) {
+            // fallback: pass the raw response if GET fails
+            console.error('Erro ao recuperar marca criada:', e);
+            onSave(response.data);
+          }
+        } else {
+          onSave(response.data);
+        }
       }
-      onSave(response.data);
       onClose();
     } catch (error) {
       console.error('Erro ao salvar marca/fornecedor:', error);

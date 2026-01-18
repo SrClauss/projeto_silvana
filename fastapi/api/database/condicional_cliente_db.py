@@ -10,8 +10,19 @@ db = client["projeto_silvana"]
 
 # CRUD para CondicionalCliente
 async def create_condicional_cliente(condicional: CondicionalCliente):
-    result = await db.condicional_clientes.insert_one(condicional.dict(by_alias=True))
-    return result.inserted_id
+    # Insert the condicional first
+    result = await db.condicional_clientes.insert_one(condicional.dict(by_alias=True, exclude={"produtos"}))
+    condicional_id = result.inserted_id
+    
+    # Now process each produto in batch
+    for produto in condicional.produtos:
+        enviar_result = await enviar_produto_condicional_cliente(str(condicional_id), produto.produto_id, produto.quantidade)
+        if enviar_result.get("error"):
+            # If error, delete the condicional and return error
+            await db.condicional_clientes.delete_one({"_id": condicional_id})
+            return {"error": enviar_result["error"]}
+    
+    return condicional_id
 
 async def get_condicional_clientes():
     return await db.condicional_clientes.find().to_list(None)
@@ -159,7 +170,7 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
     # Verifica se há estoque disponível (não em condicional)
     itens_disponiveis = [
         item for item in produto.get("itens", [])
-        if not item.get("condicional_fornecedor_id") and not item.get("condicional_cliente_id")
+        if not item.get("conditional_fornecedor") and not item.get("conditional_cliente")
     ]
     
     estoque_disponivel = sum(item.get("quantity", 0) for item in itens_disponiveis)
@@ -185,8 +196,8 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
             (i for i, it in enumerate(itens_atualizados) 
              if it.get("acquisition_date") == item.get("acquisition_date") and
                 it.get("quantity") == item.get("quantity") and
-                not it.get("condicional_fornecedor_id") and
-                not it.get("condicional_cliente_id")),
+                not it.get("conditional_fornecedor") and
+                not it.get("conditional_cliente")),
             None
         )
         
@@ -197,7 +208,7 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
         
         if item_quantity <= quantidade_restante:
             # Marca o item completamente
-            itens_atualizados[idx]["condicional_cliente_id"] = condicional_id
+            itens_atualizados[idx]["conditional_cliente"] = condicional
             quantidade_restante -= item_quantity
         else:
             # Divide o item
@@ -205,8 +216,8 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
             novo_item = {
                 "quantity": quantidade_restante,
                 "acquisition_date": itens_atualizados[idx]["acquisition_date"],
-                "condicional_fornecedor_id": None,
-                "condicional_cliente_id": condicional_id
+                "conditional_fornecedor": None,
+                "conditional_cliente": condicional
             }
             itens_atualizados.append(novo_item)
             quantidade_restante = 0
@@ -324,7 +335,7 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
         # Começa aplicando devoluções (desmarcar condicional)
         itens_condicional = [
             (i, item) for i, item in enumerate(produto.get("itens", []))
-            if item.get("condicional_cliente_id") == condicional_id
+            if item.get("conditional_cliente") and item.get("conditional_cliente").get("_id") == condicional_id
         ]
 
         itens_atualizados = list(produto.get("itens", []))
@@ -335,15 +346,15 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
                 break
             item_qty = item.get("quantity", 0)
             if item_qty <= quantidade_devolucao_restante:
-                itens_atualizados[idx]["condicional_cliente_id"] = None
+                itens_atualizados[idx]["conditional_cliente"] = None
                 quantidade_devolucao_restante -= item_qty
             else:
                 itens_atualizados[idx]["quantity"] = item_qty - quantidade_devolucao_restante
                 novo_item = {
                     "quantity": quantidade_devolucao_restante,
                     "acquisition_date": item["acquisition_date"],
-                    "condicional_fornecedor_id": item.get("condicional_fornecedor_id"),
-                    "condicional_cliente_id": None
+                    "conditional_fornecedor": item.get("conditional_fornecedor"),
+                    "conditional_cliente": None
                 }
                 itens_atualizados.append(novo_item)
                 quantidade_devolucao_restante = 0

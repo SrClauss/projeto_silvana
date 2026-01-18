@@ -11,16 +11,34 @@ import {
   TableRow,
   TablePagination,
   TextField,
-  Button,
   IconButton,
   CircularProgress,
   InputAdornment,
+  
 } from '@mui/material';
 import { Add, Search, Edit, Delete } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 import axios from 'axios';
 import type { MarcaFornecedor } from '../../types';
 import MarcaFornecedorModal from './components/MarcaFornecedorModal';
+import ShadowIconButton from '../../components/ShadowIconButton';
+
+const api = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE ?? '/api',
+});
+
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 const MarcasFornecedores: React.FC = () => {
   const theme = useTheme();
@@ -39,8 +57,8 @@ const MarcasFornecedores: React.FC = () => {
 
   useEffect(() => {
     const filtered = marcas.filter(m =>
-      m.nome.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      m.fornecedor.toLowerCase().includes(searchQuery.toLowerCase())
+      (m.nome || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (m.fornecedor || '').toLowerCase().includes(searchQuery.toLowerCase())
     );
     setFilteredMarcas(filtered);
     setPage(0);
@@ -49,8 +67,7 @@ const MarcasFornecedores: React.FC = () => {
   const loadMarcas = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/marcas-fornecedores/', { headers: { Authorization: `Bearer ${token}` } });
+      const response = await api.get('/marcas-fornecedores/');
       setMarcas(response.data);
     } catch (error) {
       console.error('Erro ao carregar marcas/fornecedores:', error);
@@ -75,8 +92,7 @@ const MarcasFornecedores: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (window.confirm('Tem certeza que deseja excluir esta marca/fornecedor?')) {
       try {
-        const token = localStorage.getItem('token');
-        await axios.delete(`/marcas-fornecedores/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+        await api.delete(`/marcas-fornecedores/${id}`);
         setMarcas(marcas.filter(m => m._id !== id));
       } catch (error) {
         console.error('Erro ao excluir marca/fornecedor:', error);
@@ -127,15 +143,16 @@ const MarcasFornecedores: React.FC = () => {
             />
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              id="marcas-add-button"
-              size="small"
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => { setEditingMarca(null); setModalOpen(true); }}
+           <ShadowIconButton 
+              variant="primary"
+              tooltip="Adicionar Marca/Fornecedor"
+              onClick={() => {
+                setEditingMarca(null);
+                setModalOpen(true);
+              }}
             >
-              Adicionar
-            </Button>
+              <Add />
+            </ShadowIconButton>
           </Box>
         </Box>
 

@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogActions,
   CircularProgress,
+
 } from '@mui/material';
 import axios from 'axios';
 import { useTheme } from '@mui/material/styles';
@@ -162,7 +163,7 @@ const ClienteModal: React.FC<ClienteModalProps> = ({
         </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2, flexDirection: 'column', gap: 1 }}>
-        <Button
+       <Button
           size="small"
           onClick={handleAddCliente}
           variant="contained"

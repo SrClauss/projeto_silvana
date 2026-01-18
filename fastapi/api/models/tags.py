@@ -17,5 +17,17 @@ class Tag(BaseModel):
             return values['descricao'].lower()
         return v.lower() if v else ""
 
+    @validator('descricao')
+    def descricao_no_spaces(cls, v):
+        if v is None:
+            raise ValueError('descricao is required')
+        v_str = str(v).strip()
+        if not v_str:
+            raise ValueError('descricao is required')
+        import re
+        if re.search(r"\s", v_str):
+            raise ValueError('descricao cannot contain spaces')
+        return v_str
+
     class Config:
         populate_by_name = True

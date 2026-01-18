@@ -12,6 +12,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  Tooltip,
 } from '@mui/material';
 import { Add, Delete } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
@@ -25,6 +26,7 @@ interface ProdutoModalProps {
   open: boolean;
   onClose: () => void;
   editingId: string | null;
+  condicionalFornecedorId?: string;
   newProduto: {
     codigo_interno: string;
     codigo_externo: string;
@@ -47,10 +49,17 @@ interface ProdutoModalProps {
     tags: Tag[];
     itens: Item[];
   }>>;
-  codigoError: string | null;
-  setCodigoError: React.Dispatch<React.SetStateAction<string | null>>;
-  addingProduto: boolean;
-  handleAddProduto: (itensParam?: Item[]) => Promise<void>;
+  onAddProduto: (produto: {
+    codigo_interno: string;
+    codigo_externo: string;
+    descricao: string;
+    marca_fornecedor: string;
+    sessao: string;
+    preco_custo: number;
+    preco_venda: number;
+    tags: Tag[];
+    itens: Item[];
+  }) => void;
   modalTagInput: string;
   setModalTagInput: React.Dispatch<React.SetStateAction<string>>;
   tagOptions: Tag[];
@@ -63,12 +72,10 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   open,
   onClose,
   editingId,
+  condicionalFornecedorId,
   newProduto,
   setNewProduto,
-  codigoError,
-  setCodigoError,
-  addingProduto,
-  handleAddProduto,
+  onAddProduto,
   modalTagInput,
   setModalTagInput,
   tagOptions,
@@ -91,11 +98,15 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   const [tempItens, setTempItens] = React.useState<Item[]>([]);
 
   React.useEffect(() => {
-    setTempItens(newProduto.itens);
+    const formattedItens = (newProduto.itens || []).map(item => ({
+      ...item,
+      acquisition_date: item.acquisition_date ? new Date(item.acquisition_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    }));
+    setTempItens(formattedItens);
   }, [newProduto.itens, open]);
 
   const addItem = () => {
-    setTempItens([...tempItens, { quantity: 1, acquisition_date: new Date().toISOString().split('T')[0] }]);
+    setTempItens([...tempItens, { quantity: 1, acquisition_date: new Date().toISOString().split('T')[0], condicional_fornecedor_id: condicionalFornecedorId || undefined }]);
   };
 
   const removeItem = (index: number) => {
@@ -106,15 +117,25 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
     setTempItens(tempItens.map((item, i) => i === index ? { ...item, [field]: value } : item));
   };
 
-  const handleAddProdutoLocal = async () => {
+  const handleAddProdutoLocal = () => {
     let finalItens = tempItens;
     if (finalItens.length === 0) {
-      finalItens = [{ quantity: 0, acquisition_date: new Date().toISOString().split('T')[0] }];
+      finalItens = [{ quantity: 1, acquisition_date: new Date().toISOString().split('T')[0] }];
     }
-    // Atualiza o estado local para manter consistência visual
-    setNewProduto({ ...newProduto, itens: finalItens });
-    // Passa os itens diretamente para evitar problema com setState assíncrono
-    await handleAddProduto(finalItens);
+    const produtoData = {
+      codigo_interno: newProduto.codigo_interno,
+      codigo_externo: newProduto.codigo_externo,
+      descricao: newProduto.descricao,
+      marca_fornecedor: newProduto.marca_fornecedor,
+      sessao: newProduto.sessao,
+      preco_custo: Math.round((newProduto.preco_custo || 0) * 100),
+      preco_venda: Math.round((newProduto.preco_venda || 0) * 100),
+      tags: newProduto.tags,
+      itens: finalItens,
+    };
+    onAddProduto(produtoData);
+    onClose();
+    setNewProduto({ codigo_interno: '', codigo_externo: '', descricao: '', marca_fornecedor: '', sessao: '', preco_custo: 0, preco_venda: 0, tags: [], itens: [] });
   };
 
   const searchMarcas = async (q: string) => {
@@ -179,9 +200,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
               size="small"
               label="Código Interno"
               value={newProduto.codigo_interno}
-              onChange={(e) => { setNewProduto({ ...newProduto, codigo_interno: e.target.value }); setCodigoError(null); }}
-              error={!!codigoError}
-              helperText={codigoError ?? ''}
+              onChange={(e) => setNewProduto({ ...newProduto, codigo_interno: e.target.value })}
               fullWidth
             />
             <TextField
@@ -254,7 +273,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
               )}
               onOpen={() => searchMarcas('')}
               filterOptions={(options, { inputValue }) =>
-                options.filter((o) => o.nome.toLowerCase().includes(inputValue.toLowerCase()) || o.fornecedor.toLowerCase().includes(inputValue.toLowerCase()))
+                options.filter((o) => o.nome?.toLowerCase().includes(inputValue.toLowerCase()) || o.fornecedor?.toLowerCase().includes(inputValue.toLowerCase()))
               }
               freeSolo
               fullWidth
@@ -298,7 +317,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
               )}
               onOpen={() => searchSessoes('')}
               filterOptions={(options, { inputValue }) =>
-                options.filter((o) => o.nome.toLowerCase().includes(inputValue.toLowerCase()) || (o.localizacao || '').toLowerCase().includes(inputValue.toLowerCase()))
+                options.filter((o) => o.nome?.toLowerCase().includes(inputValue.toLowerCase()) || (o.localizacao || '').toLowerCase().includes(inputValue.toLowerCase()))
               }
               freeSolo
               fullWidth
@@ -384,7 +403,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
               onOpen={() => searchTags('')}
               filterOptions={(options, params) => {
                 const filtered = options.filter((option) =>
-                  option.descricao.toLowerCase().includes(params.inputValue.toLowerCase())
+                  option.descricao?.toLowerCase().includes(params.inputValue.toLowerCase())
                 );
                 return filtered;
               }}
@@ -415,6 +434,8 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
                 onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
                 size="small"
               />
+
+              
               <TextField
                 label="Data de Aquisição"
                 type="date"
@@ -434,15 +455,15 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
         </Box>
       </DialogContent>
       <DialogActions sx={{ p: 2, flexDirection: 'column', gap: 1 }}>
-        <Button
-          size="small"
-          onClick={handleAddProdutoLocal}
-          variant="contained"
-          sx={{  width: '100%' }}
-          disabled={addingProduto}
-        >
-          {addingProduto ? 'Salvando...' : (editingId ? 'Salvar' : 'Adicionar')}
-        </Button>
+        <Tooltip title={editingId ? 'Salvar' : 'Adicionar'}>
+          <IconButton
+            size="small"
+            onClick={handleAddProdutoLocal}
+            sx={{ width: '100%' }}
+          >
+            <Add />
+          </IconButton>
+        </Tooltip>
         <Button size="small" onClick={onClose} sx={{ color: theme.palette.primary.main, width: '100%' }}>
           Cancelar
         </Button>

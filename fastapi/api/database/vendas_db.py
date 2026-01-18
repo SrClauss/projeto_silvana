@@ -94,10 +94,6 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
     for idx in sorted(items_to_remove, reverse=True):
         itens_atualizados.pop(idx)
     
-    # Remove items marcados para remoção (em ordem reversa para não afetar índices)
-    for idx in sorted(items_to_remove, reverse=True):
-        itens_atualizados.pop(idx)
-    
     # Atualiza o produto com os itens modificados
     await db.produtos.update_one(
         {"_id": produto_id},
@@ -146,3 +142,4 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
         "quantidade_vendida": quantidade,
         "estoque_restante": estoque_disponivel - quantidade
     }
+
