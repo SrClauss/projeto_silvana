@@ -35,19 +35,20 @@ async def create_produto(produto: Produto):
             if tag_doc:
                 normalized_tags.append({'_id': tag_doc['_id'], 'descricao': tag_doc['descricao']})
 
+    # Ensure at least one item exists; if not, add default item with quantity 1 and acquisition_date = now
+    from ..models.itens import Item as ItemModel
+    default_item_added = False
+    if not produto.itens:
+        default_item = ItemModel(quantity=1)
+        produto.itens = [default_item]
+        default_item_added = True
+
+    # Convert to dict AFTER modifying produto object
     doc = produto.dict(by_alias=True)
     doc['tags'] = normalized_tags
     doc['created_at'] = datetime.utcnow()
 
-    # Ensure at least one item exists; if not, add default item with quantity 1 and acquisition_date = now
-    from ..models.itens import Item as ItemModel
-    default_item_added = False
-    if not doc.get('itens'):
-        default_item = ItemModel(quantity=1)
-        doc['itens'] = [default_item.dict(by_alias=True)]
-        default_item_added = True
-
-    # Ensure conditional flags reflect items
+    # Ensure conditional flags reflect items - MUST set after dict() to override Pydantic defaults
     has_cond_fornecedor = any(itm.get("condicional_fornecedor_id") for itm in doc.get("itens", []))
     has_cond_cliente = any(itm.get("condicional_cliente_id") for itm in doc.get("itens", []))
     doc['em_condicional_fornecedor'] = bool(has_cond_fornecedor)
@@ -148,7 +149,11 @@ async def can_delete_produto(produto_id: str):
     produto = await db.produtos.find_one({"_id": produto_id}, projection={"em_condicional_fornecedor": 1, "em_condicional_cliente": 1})
     if produto is None:
         return None
-    return not (produto.get("em_condicional_fornecedor") or produto.get("em_condicional_cliente"))
+    # Only block if explicitly True (not False or missing)
+    em_cond_forn = produto.get("em_condicional_fornecedor", False)
+    em_cond_cli = produto.get("em_condicional_cliente", False)
+    logging.info(f"can_delete_produto {produto_id}: em_condicional_fornecedor={em_cond_forn}, em_condicional_cliente={em_cond_cli}")
+    return not (em_cond_forn is True or em_cond_cli is True)
 
 # Agregações para Produto
 async def get_produto_com_entradas(produto_id: str):
