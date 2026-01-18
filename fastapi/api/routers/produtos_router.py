@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..models.produtos import Produto
 from ..database.produtos_db import (
     create_produto, get_produtos, get_produto_by_id,
-    update_produto, delete_produto, get_produtos_by_tags, search_produtos,
+    update_produto, delete_produto, can_delete_produto, get_produtos_by_tags, search_produtos,
     exists_codigo_interno, get_last_codigo_interno
 )
 from ..database.tags_db import get_tags, find_tags_by_query, get_or_create_tag_by_descricao, delete_tag
@@ -42,6 +42,12 @@ async def update_produto_endpoint(produto_id: str, update_data: dict):
 
 @router.delete("/{produto_id}", dependencies=[Depends(get_current_user)])
 async def delete_produto_endpoint(produto_id: str):
+    can_delete = await can_delete_produto(produto_id)
+    if can_delete is None:
+        raise HTTPException(status_code=404, detail="Produto not found")
+    if not can_delete:
+        raise HTTPException(status_code=409, detail="Produto está em condicional e não pode ser removido")
+
     result = await delete_produto(produto_id)
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Produto not found")

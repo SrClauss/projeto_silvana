@@ -226,7 +226,7 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
     await db.produtos.update_one(
         {"_id": produto_id},
         {
-            "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow()},
+            "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_cliente": True},
             "$inc": {"em_condicional": quantidade}
         }
     )
@@ -388,10 +388,12 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
         itens_atualizados = [item for item in itens_atualizados if item is not None]
 
         # Atualiza o produto e decrementa em_condicional pelo total enviado
+        # Ajusta flag em_condicional_cliente conforme itens restantes
+        remaining_cond_cliente = sum(it.get("quantity", 0) for it in itens_atualizados if it.get("conditional_cliente") or it.get("condicional_cliente_id"))
         await db.produtos.update_one(
             {"_id": produto_id},
             {
-                "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow()},
+                "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_cliente": remaining_cond_cliente > 0},
                 "$inc": {"em_condicional": -quantidade_enviada}
             }
         )

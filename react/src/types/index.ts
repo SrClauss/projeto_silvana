@@ -52,6 +52,8 @@ export interface Produto {
   marca_fornecedor: string;
   sessao: string;
   em_condicional: number;
+  em_condicional_fornecedor: boolean;
+  em_condicional_cliente: boolean;
   itens: Item[];
   preco_custo: number;
   preco_venda: number;

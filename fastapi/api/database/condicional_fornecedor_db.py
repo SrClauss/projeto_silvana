@@ -97,7 +97,7 @@ async def adicionar_produto_condicional_fornecedor(condicional_id: str, produto_
         {
             "$push": {"itens": novo_item},
             "$inc": {"em_condicional": quantidade},
-            "$set": {"updated_at": datetime.utcnow()}
+            "$set": {"updated_at": datetime.utcnow(), "em_condicional_fornecedor": True}
         }
     )
     
@@ -181,10 +181,11 @@ async def devolver_itens_condicional_fornecedor(condicional_id: str, produto_id:
             quantidade_restante = 0
     
     # Atualiza o produto
+    remaining_cond_fornecedor = sum(item.get("quantity", 0) for item in itens_atualizados if item.get("condicional_fornecedor_id"))
     await db.produtos.update_one(
         {"_id": produto_id},
         {
-            "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow()},
+            "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_fornecedor": remaining_cond_fornecedor > 0},
             "$inc": {"em_condicional": -quantidade}
         }
     )

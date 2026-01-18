@@ -46,6 +46,12 @@ async def create_produto(produto: Produto):
         doc['itens'] = [default_item.dict(by_alias=True)]
         default_item_added = True
 
+    # Ensure conditional flags reflect items
+    has_cond_fornecedor = any(itm.get("condicional_fornecedor_id") for itm in doc.get("itens", []))
+    has_cond_cliente = any(itm.get("condicional_cliente_id") for itm in doc.get("itens", []))
+    doc['em_condicional_fornecedor'] = bool(has_cond_fornecedor)
+    doc['em_condicional_cliente'] = bool(has_cond_cliente)
+
     # Insert product
     result = await db.produtos.insert_one(doc)
     produto_id = result.inserted_id
@@ -134,6 +140,12 @@ async def update_produto(produto_id: str, update_data: dict):
 
 async def delete_produto(produto_id: str):
     return await db.produtos.delete_one({"_id": produto_id})
+
+async def can_delete_produto(produto_id: str):
+    produto = await db.produtos.find_one({"_id": produto_id}, projection={"em_condicional_fornecedor": 1, "em_condicional_cliente": 1})
+    if produto is None:
+        return None
+    return not (produto.get("em_condicional_fornecedor") or produto.get("em_condicional_cliente"))
 
 # Agregações para Produto
 async def get_produto_com_entradas(produto_id: str):

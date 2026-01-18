@@ -16,6 +16,8 @@ class Produto(BaseModel):
     marca_fornecedor: str
     sessao: str
     em_condicional: int = 0
+    em_condicional_fornecedor: bool = False
+    em_condicional_cliente: bool = False
     itens: List[Item]
     preco_custo: int
     preco_venda: int

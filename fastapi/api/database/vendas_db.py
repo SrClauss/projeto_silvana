@@ -95,9 +95,10 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
         itens_atualizados.pop(idx)
     
     # Atualiza o produto com os itens modificados
+    remaining_cond_fornecedor = sum(item.get("quantity", 0) for item in itens_atualizados if item.get("condicional_fornecedor_id"))
     await db.produtos.update_one(
         {"_id": produto_id},
-        {"$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow()},
+        {"$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_fornecedor": remaining_cond_fornecedor > 0},
          "$inc": {"em_condicional": -sum(condicional_sold.values()) if condicional_sold else 0}}
     )
     

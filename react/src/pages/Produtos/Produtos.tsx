@@ -268,6 +268,12 @@ const Produtos: React.FC = () => {
       await api.delete(`/produtos/${id}`);
       await loadProdutos();
     } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 409) {
+        const msg = error.response?.data?.detail || 'Produto está em condicional e não pode ser removido';
+        // Mostrar erro de forma visível ao usuário
+        alert(msg);
+        return;
+      }
       console.error('Erro ao deletar produto:', error);
     }
   };
