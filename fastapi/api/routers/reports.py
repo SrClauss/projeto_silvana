@@ -27,7 +27,7 @@ async def desempenho_condicionais_fornecedor():
                 stock += total_entradas - total_saidas
         
         # Podem ser devolvidas: quantidade_max_devolucao
-        podem_devolver = cond.get("quantidade_max_devolucao", 0)
+        podem_devolver = cond.get("quantidade_max_devolucao") or 0
         
         result.append({
             "condicional_id": cond["_id"],

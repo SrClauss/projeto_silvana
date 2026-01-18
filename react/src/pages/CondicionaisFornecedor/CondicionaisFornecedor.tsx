@@ -37,14 +37,14 @@ interface CondicionalFornecedor {
   _id: string;
   fornecedor_id: string;
   produtos_id: string[];
-  quantidade_max_devolucao: number;
+  quantidade_max_devolucao: number | null;
   data_condicional: string;
   observacoes?: string;
 }
 
 interface StatusDevolucao {
   condicional_id: string;
-  quantidade_max_devolucao: number;
+  quantidade_max_devolucao: number | null;
   quantidade_devolvida: number;
   quantidade_pode_devolver: number;
   quantidade_em_condicional: number;
@@ -60,7 +60,7 @@ function CondicionaisFornecedor() {
 
   // create condicional fornecedor modal
   const [createCondFornecedorOpen, setCreateCondFornecedorOpen] = useState(false);
-  const [createCondFornecedorForm, setCreateCondFornecedorForm] = useState({ fornecedor_id: '', quantidade_max_devolucao: 0, observacoes: '', data_condicional: new Date().toISOString().split('T')[0] });
+  const [createCondFornecedorForm, setCreateCondFornecedorForm] = useState({ fornecedor_id: '', quantidade_max_devolucao: null as number | null, observacoes: '', data_condicional: new Date().toISOString().split('T')[0] });
 
   // adicionar produto modal
   const [addProdutoModalOpen, setAddProdutoModalOpen] = useState(false);
@@ -151,7 +151,9 @@ function CondicionaisFornecedor() {
   };
 
   const getProgressColor = (status: StatusDevolucao) => {
-    const percentage = (status.quantidade_devolvida / status.quantidade_max_devolucao) * 100;
+    const max = status.quantidade_max_devolucao || 0;
+    if (max === 0) return 'success'; // Se ilimitado, sucesso
+    const percentage = (status.quantidade_devolvida / max) * 100;
     if (percentage >= 90) return 'error';
     if (percentage >= 70) return 'warning';
     return 'success';
@@ -210,7 +212,7 @@ function CondicionaisFornecedor() {
               condicionais.map((condicional) => {
                 const status = statusMap.get(condicional._id);
                 const progressValue = status
-                  ? (status.quantidade_devolvida / status.quantidade_max_devolucao) * 100
+                  ? ((status.quantidade_max_devolucao || 0) === 0 ? 0 : (status.quantidade_devolvida / (status.quantidade_max_devolucao || 0)) * 100)
                   : 0;
 
                 return (
@@ -229,7 +231,7 @@ function CondicionaisFornecedor() {
                             sx={{ height: 8, borderRadius: 1 }}
                           />
                           <Typography variant="caption">
-                            {status.quantidade_devolvida} / {status.quantidade_max_devolucao} devolvidos
+                            {status.quantidade_devolvida} / {status.quantidade_max_devolucao || 'ilimitado'} devolvidos
                           </Typography>
                         </Box>
                       )}
@@ -290,7 +292,7 @@ function CondicionaisFornecedor() {
         <DialogContent>
           <Box sx={{ display: 'flex', gap: 2, mt: 1, flexDirection: { xs: 'column', sm: 'row' }, alignItems: 'center' }}>
             <TextField label="Fornecedor ID" value={createCondFornecedorForm.fornecedor_id} onChange={(e) => setCreateCondFornecedorForm({ ...createCondFornecedorForm, fornecedor_id: e.target.value })} sx={{ width: { xs: '100%', sm: 'auto' } }} />
-            <TextField label="Quantidade Máx Devolução" type="number" value={createCondFornecedorForm.quantidade_max_devolucao} onChange={(e) => setCreateCondFornecedorForm({ ...createCondFornecedorForm, quantidade_max_devolucao: Number(e.target.value || 0) })} sx={{ width: { xs: '100%', sm: 180 } }} />
+            <TextField label="Quantidade Máx Devolução" type="number" value={createCondFornecedorForm.quantidade_max_devolucao || ''} onChange={(e) => setCreateCondFornecedorForm({ ...createCondFornecedorForm, quantidade_max_devolucao: e.target.value ? Number(e.target.value) : null })} sx={{ width: { xs: '100%', sm: 180 } }} />
             <TextField label="Data Condicional" type="date" value={createCondFornecedorForm.data_condicional} onChange={(e) => setCreateCondFornecedorForm({ ...createCondFornecedorForm, data_condicional: e.target.value })} sx={{ width: { xs: '100%', sm: 'auto' } }} />
             <TextField label="Observações" value={createCondFornecedorForm.observacoes} onChange={(e) => setCreateCondFornecedorForm({ ...createCondFornecedorForm, observacoes: e.target.value })} multiline sx={{ width: { xs: '100%', sm: 'auto' } }} />
           </Box>

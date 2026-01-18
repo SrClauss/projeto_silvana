@@ -61,7 +61,8 @@ async def processar_baixa_condicional_fornecedor(condicional_id: str, produtos_d
         return None
 
     total_devolvidos = sum(p.get("quantidade", 0) for p in produtos_devolvidos)
-    if total_devolvidos > condicional.get("quantidade_max_devolucao", 0):
+    max_devolucao = condicional.get("quantidade_max_devolucao")
+    if max_devolucao is not None and total_devolvidos > max_devolucao:
         return {"error": "Quantidade de devolução excede o limite máximo"}
 
     # Aqui poderia processar entradas ou saídas, mas por simplicidade, apenas validar
@@ -134,18 +135,19 @@ async def devolver_itens_condicional_fornecedor(condicional_id: str, produto_id:
         return {"error": f"Quantidade insuficiente para devolução. Disponível: {quantidade_disponivel}"}
     
     # Verifica limite de devolução
-    quantidade_max = condicional.get("quantidade_max_devolucao", 0)
-    # Calcula quantos já foram devolvidos
-    saidas_devolucao = await db.saidas.find({
-        "produtos_id": produto_id,
-        "fornecedor_id": condicional.get("fornecedor_id"),
-        "tipo": "devolucao"
-    }).to_list(None)
-    
-    total_ja_devolvido = sum(s.get("quantidade", 0) for s in saidas_devolucao)
-    
-    if total_ja_devolvido + quantidade > quantidade_max:
-        return {"error": f"Limite de devolução excedido. Máximo: {quantidade_max}, Já devolvido: {total_ja_devolvido}"}
+    quantidade_max = condicional.get("quantidade_max_devolucao")
+    if quantidade_max is not None:
+        # Calcula quantos já foram devolvidos
+        saidas_devolucao = await db.saidas.find({
+            "produtos_id": produto_id,
+            "fornecedor_id": condicional.get("fornecedor_id"),
+            "tipo": "devolucao"
+        }).to_list(None)
+        
+        total_ja_devolvido = sum(s.get("quantidade", 0) for s in saidas_devolucao)
+        
+        if total_ja_devolvido + quantidade > quantidade_max:
+            return {"error": f"Limite de devolução excedido. Máximo: {quantidade_max}, Já devolvido: {total_ja_devolvido}"}
     
     # Remove itens FIFO do condicional
     itens_ordenados = sorted(
@@ -204,7 +206,7 @@ async def devolver_itens_condicional_fornecedor(condicional_id: str, produto_id:
         "success": True,
         "saida_id": str(result.inserted_id),
         "quantidade_devolvida": quantidade,
-        "pode_devolver_ainda": quantidade_max - total_ja_devolvido - quantidade
+        "pode_devolver_ainda": quantidade_max - total_ja_devolvido - quantidade if quantidade_max is not None else None
     }
 
 async def get_status_devolucao_condicional_fornecedor(condicional_id: str, produto_id: str = None):
@@ -216,7 +218,7 @@ async def get_status_devolucao_condicional_fornecedor(condicional_id: str, produ
     if not condicional:
         return {"error": "Condicional não encontrado"}
     
-    quantidade_max = condicional.get("quantidade_max_devolucao", 0)
+    quantidade_max = condicional.get("quantidade_max_devolucao")
     
     # Calcula total já devolvido
     query = {
@@ -250,7 +252,7 @@ async def get_status_devolucao_condicional_fornecedor(condicional_id: str, produ
         "condicional_id": condicional_id,
         "quantidade_max_devolucao": quantidade_max,
         "quantidade_devolvida": total_devolvido,
-        "quantidade_pode_devolver": quantidade_max - total_devolvido,
+        "quantidade_pode_devolver": quantidade_max - total_devolvido if quantidade_max is not None else None,
         "quantidade_em_condicional": total_em_condicional,
         "quantidade_vendida": total_vendido
     }

@@ -33,7 +33,7 @@ const CriarCondicionalFornecedor: React.FC = () => {
 
   const [dataCondicional, setDataCondicional] = useState(new Date().toISOString().split('T')[0]);
   const [observacoes, setObservacoes] = useState('');
-  const [quantidadeMaxDevolucao, setQuantidadeMaxDevolucao] = useState(0);
+  const [quantidadeMaxDevolucao, setQuantidadeMaxDevolucao] = useState<string>('');
 
   const [produtosPendentes, setProdutosPendentes] = useState<NewProduto[]>([]);
 
@@ -210,7 +210,7 @@ const CriarCondicionalFornecedor: React.FC = () => {
     try {
       const condData = {
         fornecedor_id: selectedFornecedor._id,
-        quantidade_max_devolucao: quantidadeMaxDevolucao,
+        quantidade_max_devolucao: quantidadeMaxDevolucao ? Number(quantidadeMaxDevolucao) : null,
         data_condicional: dataCondicional,
         observacoes,
       };
@@ -296,7 +296,7 @@ const CriarCondicionalFornecedor: React.FC = () => {
               label="Quantidade Máxima de Devolução"
               type="number"
               value={quantidadeMaxDevolucao}
-              onChange={(e) => setQuantidadeMaxDevolucao(Number(e.target.value))}
+              onChange={(e) => setQuantidadeMaxDevolucao(e.target.value)}
               fullWidth
             />
           </Grid>
