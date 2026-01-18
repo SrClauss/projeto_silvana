@@ -122,10 +122,11 @@ async def processar_baixa_condicional(condicional_id: str, produtos_devolvidos: 
         quantidade_devolvida = devolvido["quantidade"] if devolvido else 0
         quantidade_vendida = quantidade_total - quantidade_devolvida
 
-        # Atualizar produto.em_condicional
+        # Atualizar produto flags
+        remaining_cond_cliente = sum(it.get("quantity", 0) for it in produto.get("itens", []) if it.get("conditional_cliente") or it.get("condicional_cliente_id"))
         await db.produtos.update_one(
             {"_id": produto_id},
-            {"$inc": {"em_condicional": -quantidade_total}}
+            {"$set": {"em_condicional_cliente": remaining_cond_cliente > 0}}
         )
 
         # Se não devolvido totalmente, processar venda
@@ -226,8 +227,7 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
     await db.produtos.update_one(
         {"_id": produto_id},
         {
-            "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_cliente": True},
-            "$inc": {"em_condicional": quantidade}
+            "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_cliente": True}
         }
     )
     
@@ -393,8 +393,7 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
         await db.produtos.update_one(
             {"_id": produto_id},
             {
-                "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_cliente": remaining_cond_cliente > 0},
-                "$inc": {"em_condicional": -quantidade_enviada}
+                "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_cliente": remaining_cond_cliente > 0}
             }
         )
 

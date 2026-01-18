@@ -42,7 +42,6 @@ interface ProdutoData {
   itens: Item[];
   saidas: Saida[];
   entradas: Entrada[];
-  em_condicional: number;
   tags: Tag[];
   preco_custo: number;
   preco_venda: number;
@@ -289,7 +288,6 @@ const Produtos: React.FC = () => {
         itens: produto.itens,
         saidas: [],
         entradas: [],
-        em_condicional: 0,
         tags: produto.tags,
         // convert to cents
         preco_custo: produto.preco_custo,

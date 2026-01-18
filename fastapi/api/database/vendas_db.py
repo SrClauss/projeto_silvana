@@ -98,8 +98,7 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
     remaining_cond_fornecedor = sum(item.get("quantity", 0) for item in itens_atualizados if item.get("condicional_fornecedor_id"))
     await db.produtos.update_one(
         {"_id": produto_id},
-        {"$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_fornecedor": remaining_cond_fornecedor > 0},
-         "$inc": {"em_condicional": -sum(condicional_sold.values()) if condicional_sold else 0}}
+        {"$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_fornecedor": remaining_cond_fornecedor > 0}}
     )
     
     # Cria saídas (vendas) - se parte da venda veio de condicionais, registrar uma saida por condicional para rastreio
