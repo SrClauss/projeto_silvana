@@ -264,6 +264,12 @@ async def create_condicional_with_produtos(condicional_data: dict, produtos: lis
     Cria uma condicional fornecedor e insere múltiplos produtos associados em uma única operação lógica.
     Retorna (condicional_id, [produto_ids]) em caso de sucesso. Em caso de erro, tenta rollback das inserções parciais.
     """
+
+    print("create_condicional_with_produtos called")
+    print("Condicional data:", condicional_data)
+    print("Produtos count:", len(produtos or []))
+
+    print("primeiro produto:", produtos[0] if produtos else "nenhum produto")
     inserted_produto_ids = []
     condicional_id = None
     logging.info('create_condicional_with_produtos called')

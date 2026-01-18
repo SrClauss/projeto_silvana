@@ -9,6 +9,8 @@ from .condicional_fornecedor import CondicionalFornecedor
 class Item(BaseModel):
     quantity: int
     acquisition_date: datetime = Field(default_factory=datetime.utcnow)
+    condicional_fornecedor_id: Optional[str] = None
+    condicional_cliente_id: Optional[str] = None
     conditional_cliente: Optional[CondicionalCliente] = None
     conditional_fornecedor: Optional[CondicionalFornecedor] = None
     

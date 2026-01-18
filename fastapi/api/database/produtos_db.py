@@ -153,7 +153,8 @@ async def can_delete_produto(produto_id: str):
     em_cond_forn = produto.get("em_condicional_fornecedor", False)
     em_cond_cli = produto.get("em_condicional_cliente", False)
     logging.info(f"can_delete_produto {produto_id}: em_condicional_fornecedor={em_cond_forn}, em_condicional_cliente={em_cond_cli}")
-    return not (em_cond_forn is True or em_cond_cli is True)
+    # Block deletion if any conditional flag is truthy (True, 'true', 1, etc.)
+    return not (bool(em_cond_forn) or bool(em_cond_cli))
 
 # Agregações para Produto
 async def get_produto_com_entradas(produto_id: str):
