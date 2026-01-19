@@ -17,7 +17,8 @@ import {
   IconButton,
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import axios from 'axios';
+
+import api from '../../../lib/axios';
 import type { Cliente } from '../../../types';
 
 
@@ -42,8 +43,8 @@ const ClienteSelectModal: React.FC<ClienteSelectModalProps> = ({ open, onClose, 
     try {
       const token = localStorage.getItem('token');
       let res;
-      if (q && q.trim()) res = await axios.get(`/clientes/?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
-      else res = await axios.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
+      if (q && q.trim()) res = await api.get(`/clientes/?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
+      else res = await api.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
       setClientes(res.data);
     } catch (error) {
       console.error('Erro ao buscar clientes:', error);
@@ -61,9 +62,9 @@ const ClienteSelectModal: React.FC<ClienteSelectModalProps> = ({ open, onClose, 
     setAdding(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.post('/clientes/', newCliente, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.post('/clientes/', newCliente, { headers: { Authorization: `Bearer ${token}` } });
       if (res?.data?.id) {
-        const created = await axios.get(`/clientes/${res.data.id}`, { headers: { Authorization: `Bearer ${token}` } });
+        const created = await api.get(`/clientes/${res.data.id}`, { headers: { Authorization: `Bearer ${token}` } });
         setClientes(prev => [created.data, ...prev]);
         // select created automatically
         onSelect(created.data);

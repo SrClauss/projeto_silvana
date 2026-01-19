@@ -25,14 +25,16 @@ import {
 } from '@mui/material';
 
 import api from '../../lib/axios';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { Saida, Tag } from '../../types';
 import { Add as AddIcon, Delete } from '@mui/icons-material';
-import ShadowIconButton from '../../components/ShadowIconButton';
+import Title from '../../components/Title';
 
 function Vendas() {
   const today = new Date();
   const isoDate = (d: Date) => d.toISOString().split('T')[0];
+  const [searchParams] = useSearchParams();
+  const clienteId = searchParams.get('cliente_id');
 
   const [vendas, setVendas] = useState<Array<Saida & { produto_descricao?: string; produto_codigo_interno?: string; preco_venda?: number; cliente_nome?: string; cliente_telefone?: string; cliente_cpf?: string }>>([]);
   const [loading, setLoading] = useState(true);
@@ -50,14 +52,16 @@ function Vendas() {
   const [tagOptions, setTagOptions] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
+  const [tagInputValue, setTagInputValue] = useState('');
 
 
 
 
-  const fetchTags = async () => {
+  const fetchTags = async (q: string = '') => {
     setLoadingTags(true);
     try {
-      const res = await api.get('/produtos/tags/');
+      const endpoint = q ? `/produtos/tags/search/?q=${encodeURIComponent(q)}` : '/produtos/tags/';
+      const res = await api.get(endpoint);
       setTagOptions(res.data || []);
     } catch (err) {
       console.error('Erro ao buscar tags:', err);
@@ -105,6 +109,7 @@ function Vendas() {
       if (produtoId) params.produto_id = produtoId;
       if (produtoQuery) params.produto_query = produtoQuery;
       if (selectedTags && selectedTags.length > 0) params.tag_ids = selectedTags.map(t => t._id).join(',');
+      if (clienteId) params.cliente_id = clienteId;
 
       const res = await api.get('/vendas/', { params });
       console.debug('fetchVendas response', res.status, res.data);
@@ -153,11 +158,15 @@ function Vendas() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, mb: 3, gap: 1 }}>
-        <Typography variant="h4">Vendas</Typography>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 1 }}>
+       <Title text="Vendas" />
+        
+      </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/vendas/criar')} sx={{ alignSelf: { xs: 'stretch', sm: 'auto' } }}>
-          Fazer Venda
-        </Button>
+            Fazer Venda
+          </Button>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -203,6 +212,15 @@ function Vendas() {
             isOptionEqualToValue={(option, value) => option._id === value._id}
             value={selectedTags}
             onChange={(_e, newValue) => setSelectedTags(newValue)}
+            inputValue={tagInputValue}
+            onInputChange={async (_e, v) => {
+              setTagInputValue(v);
+              if (v.trim()) {
+                await fetchTags(v.trim());
+              } else {
+                setTagOptions([]);
+              }
+            }}
             renderTags={(value, getTagProps) =>
               value.map((option, index) => (
                 <Chip
@@ -211,7 +229,6 @@ function Vendas() {
                 />
               ))
             }
-            onOpen={() => fetchTags()}
             loading={loadingTags}
             renderInput={(params) => (
               <TextField {...params} label="Filtrar por tags" placeholder="Pesquisar tags" size="small" />
@@ -239,15 +256,7 @@ function Vendas() {
             </Select>
           </FormControl>
 
-          <ShadowIconButton
-
-            variant="primary"
-            sx={{ px: 1, mt: { xs: 1, sm: 0 } }}
-            onClick={() => { setPage(0); fetchVendas(); }}
-            tooltip="Adcionar Vendas"
-          >
-            <AddIcon />
-          </ShadowIconButton>
+        
           </Box>
 
 

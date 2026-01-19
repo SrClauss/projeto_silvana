@@ -1,5 +1,5 @@
 import React from 'react';
-import axios from 'axios';
+import api from '../lib/axios'
 import {
   Box,
   Typography,
@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogActions,
   Autocomplete,
+  // @ts-ignore
   Chip,
   CircularProgress,
   IconButton,
@@ -22,9 +23,6 @@ import MarcaFornecedorModal from './MarcaFornecedorModal';
 import SessaoModal from '../pages/Sessoes/components/SessaoModal';
 import type { MarcaFornecedor } from '../types';
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE ?? '/api',
-});
 
 api.interceptors.request.use(
   (config) => {
@@ -80,6 +78,7 @@ interface ProdutoModalProps {
   modalTagInput: string;
   setModalTagInput: React.Dispatch<React.SetStateAction<string>>;
   tagOptions: Tag[];
+  setTagOptions: React.Dispatch<React.SetStateAction<Tag[]>>;
   loadingTags: boolean;
   searchTags: (q: string) => Promise<void>;
   createTag: (descricao: string) => Promise<Tag | null>;
@@ -99,6 +98,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   modalTagInput,
   setModalTagInput,
   tagOptions,
+  setTagOptions,
   loadingTags,
   searchTags,
   createTag,
@@ -118,6 +118,9 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   const [sessaoLoading, setSessaoLoading] = React.useState(false);
   const [sessaoInputValue, setSessaoInputValue] = React.useState('');
 
+  const [confirmTagModalOpen, setConfirmTagModalOpen] = React.useState(false);
+  const [pendingTag, setPendingTag] = React.useState<string>('');
+
   const [tempItens, setTempItens] = React.useState<Item[]>([]);
 
   React.useEffect(() => {
@@ -129,7 +132,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
     if (defaultMarcaFornecedor) {
       setNewProduto((p) => ({ ...p, marca_fornecedor: defaultMarcaFornecedor.fornecedor }));
     }
-  }, [newProduto.itens, open, defaultMarcaFornecedor]);
+  }, [newProduto.itens, open, defaultMarcaFornecedor, setNewProduto]);
 
   React.useEffect(() => {
     // Pre-fill suggested codigo when opening modal for new product (not editing)
@@ -151,7 +154,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
         }
       })();
     }
-  }, [open, defaultCodigo, editingId, setNewProduto]);
+  }, [open, defaultCodigo, editingId, setNewProduto, nextNumeration]);
 
   React.useEffect(() => {
     if (open) {
@@ -169,7 +172,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   }, [marcaOptions, defaultMarcaFornecedor, selectedMarca]);
 
   const addItem = () => {
-    setTempItens([...tempItens, { quantity: 1, acquisition_date: new Date().toISOString().split('T')[0], condicional_fornecedor_id: condicionalFornecedorId || undefined }]);
+    setTempItens([...tempItens, { quantity: 1, acquisition_date: new Date().toISOString().split('T')[0], condicionais_fornecedor: condicionalFornecedorId ? [condicionalFornecedorId] : [], condicionais_cliente: [] }]);
   };
 
   const removeItem = (index: number) => {
@@ -183,7 +186,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   const handleAddProdutoLocal = () => {
     let finalItens = tempItens;
     if (finalItens.length === 0) {
-      finalItens = [{ quantity: 1, acquisition_date: new Date().toISOString().split('T')[0], condicional_fornecedor_id: condicionalFornecedorId || undefined }];
+      finalItens = [{ quantity: 1, acquisition_date: new Date().toISOString().split('T')[0], condicionais_fornecedor: condicionalFornecedorId ? [condicionalFornecedorId] : [], condicionais_cliente: [] }];
     }
     const produtoData = {
       codigo_interno: newProduto.codigo_interno,
@@ -256,7 +259,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth sx={{ '& .MuiDialog-paper': { height: '90vh' } }}>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth container={document.body} sx={{ '& .MuiDialog-paper': { height: '90vh' } }}>
       <DialogTitle sx={{ bgcolor: theme.palette.primary.main, color: theme.palette.secondary.main }}>
         {editingId ? 'Editar Produto' : 'Adicionar Produto'}
       </DialogTitle>
@@ -353,6 +356,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
             </Tooltip>
           </Box>
 
+
           {/* Sessão */}
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
             <Autocomplete
@@ -383,17 +387,54 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
             options={tagOptions}
             getOptionLabel={(opt) => (typeof opt === 'string' ? opt : opt.descricao)}
             value={newProduto.tags || []}
-            onChange={(_e, value) => setNewProduto({ ...newProduto, tags: value.map(v => typeof v === 'string' ? { descricao: v } as Tag : v) })}
-            onOpen={() => searchTags('')}
+            onChange={(_e, value) => {
+              const newTags: Tag[] = [];
+              for (const v of value) {
+                if (typeof v === 'object' && v !== null) {
+                  if ((v as any)._id === 'create') {
+                    // Trigger create
+                    const tagToCreate = modalTagInput.trim();
+                    if (tagToCreate) {
+                      setPendingTag(tagToCreate);
+                      setConfirmTagModalOpen(true);
+                    }
+                    return; // Don't add to tags yet
+                  } else {
+                    newTags.push(v);
+                  }
+                }
+              }
+              setNewProduto({ ...newProduto, tags: newTags });
+            }}
             inputValue={modalTagInput}
-            onInputChange={(_e, v) => setModalTagInput(v)}
-            renderTags={(value) => (
-              value.map((option, index) => (
-                <Chip key={index} label={typeof option === 'string' ? option : option.descricao} />
-              ))
-            )}
+            onInputChange={async (_e, v) => {
+              setModalTagInput(v);
+              if (v.trim()) {
+                await searchTags(v.trim());
+                // After searching, add create option if no exact match
+                const hasExactMatch = tagOptions.some(t => t.descricao.toLowerCase() === v.trim().toLowerCase());
+                if (!hasExactMatch) {
+                  setTagOptions(prev => [...prev, { _id: 'create', descricao: `+ Criar "${v.trim()}"` } as any]);
+                }
+              } else {
+                setTagOptions([]);
+              }
+            }}
+            onKeyDown={() => {
+              // Removed Enter handling, now creation is via the "+ Criar" option
+            }}
+            renderOption={(props, option) => {
+              if ((option as any)._id === 'create') {
+                return (
+                  <li {...props} style={{ justifyContent: 'center', fontWeight: 'bold' }}>
+                    {option.descricao}
+                  </li>
+                );
+              }
+              return <li {...props}>{option.descricao}</li>;
+            }}
             renderInput={(params) => (
-              <TextField {...params} label="Tags" size="small" InputProps={{ ...params.InputProps, endAdornment: (<>{loadingTags ? <CircularProgress color="inherit" size={16} /> : null}{params.InputProps.endAdornment}</>) }} onBlur={() => { if (modalTagInput && typeof createTag === 'function') { void createTag(modalTagInput); } }} />
+              <TextField {...params} label="Tags" size="small" InputProps={{ ...params.InputProps, endAdornment: (<>{loadingTags ? <CircularProgress color="inherit" size={16} /> : null}{params.InputProps.endAdornment}</>) }} />
             )}
           />
 
@@ -434,6 +475,38 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
 
       <MarcaFornecedorModal open={marcaModalOpen} onClose={() => setMarcaModalOpen(false)} onSave={handleSaveMarca} />
       <SessaoModal open={sessaoModalOpen} onClose={() => setSessaoModalOpen(false)} editingSessao={null} onSave={(s) => setSessaoOptions(prev => [s, ...prev])} />
+
+      {/* Confirm Tag Creation Modal */}
+      <Dialog open={confirmTagModalOpen} onClose={() => setConfirmTagModalOpen(false)} container={document.body}>
+        <DialogTitle>Criar Nova Tag</DialogTitle>
+        <DialogContent>
+          <Typography>
+            A tag "{pendingTag}" não existe. Deseja criá-la?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmTagModalOpen(false)}>Cancelar</Button>
+          <Button onClick={async () => {
+            if (pendingTag && typeof createTag === 'function') {
+              try {
+                const newTag = await createTag(pendingTag);
+                if (newTag) {
+                  setTagOptions(prev => [newTag, ...prev]);
+                  setNewProduto(prev => ({ ...prev, tags: [...(prev.tags || []), newTag] }));
+                }
+                setConfirmTagModalOpen(false);
+                setPendingTag('');
+                setModalTagInput('');
+              } catch (error) {
+                console.error('Erro ao criar tag:', error);
+                // Optionally show error message
+              }
+            }
+          }} variant="contained">
+            Criar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 };

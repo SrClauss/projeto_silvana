@@ -48,6 +48,7 @@ interface ProdutoData {
 }
 import ProdutoModal from '../../components/ProdutoModal';
 import ShadowIconButton from '../../components/ShadowIconButton';
+import Title from '../../components/Title';
 
 const Produtos: React.FC = () => {
   const theme = useTheme();
@@ -276,22 +277,22 @@ const Produtos: React.FC = () => {
       console.error('Erro ao deletar produto:', error);
     }
   };
-  const handleAddProduto = async (produto: any) => {
+  const handleAddProduto = async (produto: Partial<Produto>) => {
     try {
       // token é gerenciado automaticamente pela instância `api`
       const produtoData: ProdutoData = {
-        codigo_interno: produto.codigo_interno,
-        codigo_externo: produto.codigo_externo,
-        descricao: produto.descricao,
-        marca_fornecedor: produto.marca_fornecedor,
-        sessao: produto.sessao,
-        itens: produto.itens,
+        codigo_interno: produto.codigo_interno || '',
+        codigo_externo: produto.codigo_externo || '',
+        descricao: produto.descricao || '',
+        marca_fornecedor: produto.marca_fornecedor || '',
+        sessao: produto.sessao || '',
+        itens: produto.itens || [],
         saidas: [],
         entradas: [],
-        tags: produto.tags,
+        tags: produto.tags || [],
         // convert to cents
-        preco_custo: produto.preco_custo,
-        preco_venda: produto.preco_venda,
+        preco_custo: produto.preco_custo ?? 0,
+        preco_venda: produto.preco_venda ?? 0,
       };
 
       if (editingId) {
@@ -371,9 +372,7 @@ const Produtos: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%' }}>
-      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>
-        Produtos
-      </Typography>
+      <Title text="Produtos" />
 
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: { xs: 2, md: 3 }, borderRadius: 2, maxWidth: '100%' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2}}>
@@ -659,6 +658,7 @@ const Produtos: React.FC = () => {
         modalTagInput={modalTagInput}
         setModalTagInput={setModalTagInput}
         tagOptions={tagOptions}
+        setTagOptions={setTagOptions}
         loadingTags={loadingTags}
         searchTags={searchTags}
         createTag={createTag}

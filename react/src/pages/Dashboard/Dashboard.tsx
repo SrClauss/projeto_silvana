@@ -20,6 +20,7 @@ import {
   KeyboardArrowDown
 } from '@mui/icons-material';
 import { dashboardData } from '../../mock/dashboardData';
+import Title from '../../components/Title';
 
 
 // --- TEMA ---
@@ -103,11 +104,7 @@ const Dashboard = () => {
       {/* Remover Box wrapper - o LoggedLayout já fornece o container */}
       <Box id="dashboard-root" sx={{ width: '100%' }}>
         <Box id="dashboard-header" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mb: 6 }}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography id="dashboard-title" variant="h4">Gestão do Closet</Typography>
-            <Typography id="dashboard-subtitle" variant="body2" color="text.secondary">Janeiro 2026 • Performance</Typography>
-          </Box>
-        
+          <Title text="Gestão do Closet" subtitle="Janeiro 2026 • Performance" />
         </Box>
 
             <Grid id="dashboard-grid" container spacing={4}>

@@ -6,6 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline'
 import theme from './theme'
 import axios from 'axios'
 
+
 // Use Vite env VITE_API_BASE or default to '/api' so requests are same-origin and avoid CORS/PNA issues
 axios.defaults.baseURL = import.meta.env.VITE_API_BASE ?? '/api'
 

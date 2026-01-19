@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, TextField, Button, Paper, Typography, List, ListItem, ListItemText, Divider, Alert, Autocomplete, Chip, ToggleButtonGroup, ToggleButton, Fab, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
-import { PersonAdd as PersonAddIcon, Add as AddIcon } from '@mui/icons-material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
+import { PersonAdd as PersonAddIcon, Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 import type { AutocompleteRenderInputParams } from '@mui/material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../../lib/axios';
 import type { Produto, Cliente, Item, Tag } from '../../types';
 import ClienteModal from '../Clientes/components/ClienteModal';
 import ShadowIconButton from '../../components/ShadowIconButton';
+import Title from '../../components/Title';
 
 function formatCurrency(cents: number) {
   const reais = cents / 100;
@@ -32,13 +31,14 @@ const CriarVenda: React.FC = () => {
   const initialProdutoId = searchParams.get('produto_id') ?? undefined;
   const initialClienteId = searchParams.get('cliente_id') ?? undefined;
 
-  const [produtoQuery] = useState('');
+  const [produtoQuery, setProdutoQuery] = useState('');
   const [produtoResults, setProdutoResults] = useState<Produto[]>([]);
 
   // Tag search
   const [tagOptions, setTagOptions] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<Tag[]>([]);
   const [loadingTags, setLoadingTags] = useState(false);
+  const [tagInputValue, setTagInputValue] = useState('');
   const [tagFilterMode, setTagFilterMode] = useState<'OR' | 'AND'>('OR');
 
   const [clienteQuery, setClienteQuery] = useState('');
@@ -124,9 +124,18 @@ const CriarVenda: React.FC = () => {
     setEditingItem(null);
   };
 
-  // helper para estoque disponível exibido no dropdown
-  const getAvailableStock = (p: Produto) => {
-    return (p.itens || []).filter((it: Item) => !it.condicional_fornecedor_id && !it.condicional_cliente_id).reduce((s: number, it: Item) => s + (it.quantity || 0), 0);
+  // helper para estoque disponível e totais
+  const getStockInfo = (p: Produto) => {
+    const total = (p.itens || []).reduce((s: number, it: Item) => s + (it.quantity || 0), 0);
+    const reservedCliente = (p.itens || []).reduce((s: number, it: Item) => s + ((it.condicionais_cliente || []).length), 0);
+    const available = Math.max(0, total - reservedCliente);
+    return { available, total, reservedCliente };
+  };
+
+  const getStockDisplay = (p: Produto) => {
+    const { available, total, reservedCliente } = getStockInfo(p);
+    if (reservedCliente > 0) return `${available}/${total}*`;
+    return `${available}`;
   };
 
   const fetchProdutoById = async (id: string) => {
@@ -152,11 +161,12 @@ const CriarVenda: React.FC = () => {
   const [tagError, setTagError] = useState<string | null>(null);
 
   type AxiosErrorLike = { response?: { data?: { detail?: string }; status?: number } };
-  const fetchTags = async () => {
+  const fetchTags = async (q: string = '') => {
     setLoadingTags(true);
     setTagError(null);
     try {
-      const res = await api.get('/produtos/tags/');
+      const endpoint = q ? `/produtos/tags/search/?q=${encodeURIComponent(q)}` : '/produtos/tags/';
+      const res = await api.get(endpoint);
       
       setTagOptions(res.data || []);
     } catch (e: unknown) {
@@ -335,7 +345,7 @@ const CriarVenda: React.FC = () => {
     for (const item of itensVenda) {
       if (!item.produto) return setError('Selecione um produto para todos os itens');
       if (item.quantidade < 1) return setError('Quantidade inválida para algum item');
-      const estoque = getAvailableStock(item.produto);
+      const estoque = getStockInfo(item.produto).available;
       if (item.quantidade > estoque) return setError(`Estoque insuficiente para ${item.produto.descricao}. Disponível: ${estoque}`);
     }
 
@@ -371,7 +381,7 @@ const CriarVenda: React.FC = () => {
   return (
     <Box sx={{ p: 3, display: 'flex', justifyContent: 'center' }}>
       <Box sx={{ width: '100%', maxWidth: 700 }}>
-        <Typography variant="h4" sx={{ mb: 2, textAlign: 'center' }}>Criar Venda</Typography>
+        <Title text="Criar Venda" />
 
         <Paper sx={{ p: 2, mb: 2, position: 'relative' }}>
           <Typography variant="subtitle1">Pesquisar Cliente</Typography>
@@ -448,6 +458,15 @@ const CriarVenda: React.FC = () => {
               isOptionEqualToValue={(option: Tag, value: Tag) => option._id === value._id}
               value={selectedTags}
               onChange={(_e: React.SyntheticEvent, newValue: Tag[]) => { setSelectedTags(newValue); }}
+              inputValue={tagInputValue}
+              onInputChange={async (_e, v) => {
+                setTagInputValue(v);
+                if (v.trim()) {
+                  await fetchTags(v.trim());
+                } else {
+                  setTagOptions([]);
+                }
+              }}
               loading={loadingTags}
               renderTags={(value, getTagProps) =>
                 value.map((option: Tag, index: number) => {
@@ -458,7 +477,6 @@ const CriarVenda: React.FC = () => {
                   return <Chip key={option._id} label={option.descricao} {...rest} />;
                 })
               }
-              onOpen={() => fetchTags()}
               renderInput={(params: AutocompleteRenderInputParams) => (
                 <TextField {...params} label="Filtrar por tags" placeholder="Pesquisar tags" size="small" />
               )}
@@ -477,15 +495,40 @@ const CriarVenda: React.FC = () => {
           </Box>
           {tagError && <Alert severity="warning">{tagError}</Alert>}
 
+          {/* Pesquisa por descrição */}
+          <Box sx={{ mb: 2 }}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Pesquisar por descrição"
+              placeholder="Digite parte da descrição do produto"
+              value={produtoQuery}
+              onChange={(e) => setProdutoQuery(e.target.value)}
+              helperText="Busque produtos por descrição, código interno ou externo"
+            />
+          </Box>
+
           {/* Quando há resultados por tag/consulta, mostre lista 'Produtos encontrados' para o usuário adicionar rapidamente */}
-          {produtoResults.length > 0 && (!produtoQuery || produtoQuery.trim() === '') && (
+          {produtoResults.length > 0 && (
             <Paper sx={{ p: 1, mb: 2, bgcolor: '#fafafa' }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>Produtos encontrados</Typography>
               <List dense sx={{ maxHeight: produtoResults.length > 5 ? 200 : 'none', overflow: produtoResults.length > 5 ? 'auto' : 'visible' }}>
                 {produtoResults.map((p) => (
                   <React.Fragment key={p._id}>
                     <ListItem button onClick={() => addItemWithProduct(p)}>
-                      <ListItemText primary={`${p.codigo_interno} — ${p.descricao}`} secondary={`Preço: ${formatCurrency(p.preco_venda || 0)} — Estoque: ${getAvailableStock(p)}`} />
+                      <ListItemText primary={`${p.codigo_interno} — ${p.descricao}`} secondary={<>
+                        Preço: {formatCurrency(p.preco_venda || 0)} — 
+                        {(() => {
+                          const { reservedCliente } = getStockInfo(p);
+                          return reservedCliente > 0 ? (
+                            <Tooltip title={`Reservado por ${reservedCliente} unidade(s)`}>
+                              <span>Estoque: {getStockDisplay(p)}</span>
+                            </Tooltip>
+                          ) : (
+                            <span>Estoque: {getStockDisplay(p)}</span>
+                          );
+                        })()}
+                      </>} />
                     </ListItem>
                     <Divider />
                   </React.Fragment>

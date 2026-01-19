@@ -67,7 +67,7 @@ const SessaoModal: React.FC<SessaoModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth container={document.body}>
       <DialogTitle sx={{ bgcolor: theme.palette.primary.main, color: theme.palette.secondary.main }}>
         {editingSessao ? 'Editar Sessão' : 'Adicionar Sessão'}
       </DialogTitle>

@@ -18,7 +18,7 @@ async def get_estoque_disponivel_por_produto(produto_id: str):
     total = 0
     for item in produto.get("itens", []):
         # Conta itens que não estão em condicional cliente (itens em condicional fornecedor são vendáveis)
-        if not item.get("condicional_cliente_id"):
+        if not item.get("condicionais_cliente"):
             total += item.get("quantity", 0)
     
     return total
@@ -33,11 +33,14 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
     produto = await db.produtos.find_one({"_id": produto_id})
     if not produto:
         return {"error": "Produto não encontrado"}
+
+    # snapshot do produto, sem 'itens' (para registro na saida)
+    produto_snapshot = { k: v for k, v in produto.items() if k != 'itens' }
     
     # Verifica estoque disponível (excluindo itens em condicional cliente)
     itens_disponiveis = [
         item for item in produto.get("itens", [])
-        if not item.get("condicional_cliente_id")
+        if not item.get("condicionais_cliente")
     ]
     
     estoque_disponivel = sum(item.get("quantity", 0) for item in itens_disponiveis)
@@ -66,7 +69,7 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
         for i, it in enumerate(itens_atualizados):
             if (it.get("acquisition_date") == item.get("acquisition_date") and
                 it.get("quantity") == item.get("quantity") and
-                not it.get("condicional_cliente_id") and
+                not it.get("condicionais_cliente") and
                 i not in items_to_remove):
                 idx = i
                 break
@@ -75,7 +78,8 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
             continue
         
         item_quantity = itens_atualizados[idx].get("quantity", 0)
-        cond_id = itens_atualizados[idx].get("condicional_fornecedor_id")
+        cond_ids = itens_atualizados[idx].get("condicionais_fornecedor") or []
+        cond_id = cond_ids[0] if cond_ids else None
         
         if item_quantity <= quantidade_restante:
             # Remove o item completamente
@@ -94,12 +98,26 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
     for idx in sorted(items_to_remove, reverse=True):
         itens_atualizados.pop(idx)
     
+    # IMPORTANTE: Verificar ANTES de atualizar se o produto poderá ser deletado
+    # Esta verificação usa o produto no estado ATUAL (antes da atualização)
+    total_restante = sum(item.get("quantity", 0) for item in itens_atualizados)
+    produto_pode_ser_deletado = False
+    
+    if total_restante == 0:
+        # Verifica usando o estado atual do produto (com itens ainda intactos no banco)
+        from .produtos_db import can_delete_produto
+        produto_pode_ser_deletado = await can_delete_produto(produto_id)
+    
     # Atualiza o produto com os itens modificados
-    remaining_cond_fornecedor = sum(item.get("quantity", 0) for item in itens_atualizados if item.get("condicional_fornecedor_id"))
+    remaining_cond_fornecedor = sum(item.get("quantity", 0) for item in itens_atualizados if item.get("condicionais_fornecedor"))
     await db.produtos.update_one(
         {"_id": produto_id},
         {"$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_fornecedor": remaining_cond_fornecedor > 0}}
     )
+
+    # Se verificamos que pode deletar, deleta agora
+    if produto_pode_ser_deletado:
+        await db.produtos.delete_one({"_id": produto_id})
     
     # Cria saídas (vendas) - se parte da venda veio de condicionais, registrar uma saida por condicional para rastreio
     vendas_criadas = []
@@ -116,7 +134,8 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
             tipo="venda",
             data_saida=datetime.utcnow(),
             valor_total=valor_total if q == total_vendido else None,
-            observacoes=observacoes
+            observacoes=observacoes,
+            produto=produto_snapshot
         )
         res = await db.saidas.insert_one(saida.dict(by_alias=True))
         vendas_criadas.append({"saida_id": str(res.inserted_id), "quantidade": q, "condicional_fornecedor_id": cond_id})
@@ -131,7 +150,8 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
             tipo="venda",
             data_saida=datetime.utcnow(),
             valor_total=valor_total,
-            observacoes=observacoes
+            observacoes=observacoes,
+            produto=produto_snapshot
         )
         res = await db.saidas.insert_one(saida.dict(by_alias=True))
         vendas_criadas.append({"saida_id": str(res.inserted_id), "quantidade": restante})
@@ -140,6 +160,14 @@ async def processar_venda_produto(produto_id: str, quantidade: int, cliente_id: 
         "success": True,
         "vendas": vendas_criadas,
         "quantidade_vendida": quantidade,
-        "estoque_restante": estoque_disponivel - quantidade
+        "estoque_restante": estoque_disponivel - quantidade,
+        "produto_deletado": produto_pode_ser_deletado
     }
 
+async def produto_foi_vendido(produto_id: str):
+    """
+    Verifica se um produto já teve saida (possui saídas registradas).
+    e retorna os objetos de saida deste produto.
+    """
+    saidas = await db.saidas.find({"produtos_id": produto_id}).to_list(None)
+    return saidas if saidas else None

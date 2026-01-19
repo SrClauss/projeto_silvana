@@ -14,14 +14,14 @@ async def create_tag(tag: Tag):
     return result.inserted_id
 
 async def get_tags():
-    return await db.tags.find().to_list(None)
+    return await db.tags.find().sort("descricao", 1).to_list(None)
 
 async def get_tag_by_id(tag_id: str):
     return await db.tags.find_one({"_id": tag_id})
 
 async def find_tags_by_query(q: str):
     regex = {"$regex": q, "$options": "i"}
-    return await db.tags.find({"descricao": regex}).to_list(None)
+    return await db.tags.find({"descricao": regex}).sort("descricao", 1).to_list(None)
 
 from pymongo.errors import DuplicateKeyError
 

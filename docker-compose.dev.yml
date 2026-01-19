@@ -8,6 +8,7 @@ services:
       - ALLOWED_ORIGINS=http://localhost:5173
       - CORS_ALLOW_CREDENTIALS=true
       - MONGODB_URL=mongodb://mongodb:27017/projeto_silvana
+      - ACCESS_TOKEN_EXPIRE_MINUTES=240
     volumes:
       - ./fastapi:/app
     command: sh -c "pip install --no-cache-dir -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"

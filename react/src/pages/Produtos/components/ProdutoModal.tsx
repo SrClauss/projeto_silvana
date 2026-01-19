@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { Add, Delete } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import axios from 'axios';
+import api from '../../../lib/axios';
 import type { Tag, Item, Sessao } from '../../../types';
 import MarcaFornecedorModal from '../../../components/MarcaFornecedorModal';
 import SessaoModal from '../../Sessoes/components/SessaoModal';
@@ -106,7 +106,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   }, [newProduto.itens, open]);
 
   const addItem = () => {
-    setTempItens([...tempItens, { quantity: 1, acquisition_date: new Date().toISOString().split('T')[0], condicional_fornecedor_id: condicionalFornecedorId || undefined }]);
+    setTempItens([...tempItens, { quantity: 1, acquisition_date: new Date().toISOString().split('T')[0], condicionais_fornecedor: condicionalFornecedorId ? [condicionalFornecedorId] : [], condicionais_cliente: [] }]);
   };
 
   const removeItem = (index: number) => {
@@ -120,7 +120,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
   const handleAddProdutoLocal = () => {
     let finalItens = tempItens;
     if (finalItens.length === 0) {
-      finalItens = [{ quantity: 1, acquisition_date: new Date().toISOString().split('T')[0] }];
+      finalItens = [{ quantity: 1, acquisition_date: new Date().toISOString().split('T')[0], condicionais_fornecedor: [], condicionais_cliente: [] }];
     }
     const produtoData = {
       codigo_interno: newProduto.codigo_interno,
@@ -142,7 +142,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
     setMarcaLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/marcas-fornecedores/', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/marcas-fornecedores/', { headers: { Authorization: `Bearer ${token}` } });
       const list: MarcaFornecedor[] = res.data;
       const filtered = q ? list.filter(m => (m.nome || '').toLowerCase().includes(q.toLowerCase()) || (m.fornecedor || '').toLowerCase().includes(q.toLowerCase())) : list;
       setMarcaOptions(filtered);
@@ -167,7 +167,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
     setSessaoLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/sessoes/', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/sessoes/', { headers: { Authorization: `Bearer ${token}` } });
       const list: Sessao[] = res.data;
       const filtered = q ? list.filter(s => (s.nome || '').toLowerCase().includes(q.toLowerCase()) || (s.localizacao || '').toLowerCase().includes(q.toLowerCase())) : list;
       setSessaoOptions(filtered);
@@ -415,6 +415,7 @@ const ProdutoModal: React.FC<ProdutoModalProps> = ({
                     key={t._id}
                     label={t.descricao_case_insensitive ?? t.descricao}
                     title={t.descricao}
+                    
                     onDelete={() => setNewProduto({ ...newProduto, tags: newProduto.tags.filter(x => x._id !== t._id) })}
                     sx={{ bgcolor: theme.palette.secondary.main, color: theme.palette.primary.main }}
                   />

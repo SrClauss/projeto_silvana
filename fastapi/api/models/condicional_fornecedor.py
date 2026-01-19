@@ -12,8 +12,10 @@ class CondicionalFornecedor(BaseModel):
     fornecedor_id: str
     produtos_id: List[str] = Field(default_factory=list)
     quantidade_max_devolucao: Optional[int] = None
+    prazo_devolucao: Optional[int] = None  # prazo em dias para devolução
     data_condicional: date = Field(default_factory=lambda: datetime.utcnow().date())
     observacoes: Optional[str] = None
+    fechada: bool = False  # indica se a condicional foi finalizada
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
 

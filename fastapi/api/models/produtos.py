@@ -17,6 +17,7 @@ class Produto(BaseModel):
     sessao: str
     em_condicional_fornecedor: bool = False
     em_condicional_cliente: bool = False
+    ativo: bool = True  # se False, produto está logicamente removido/indisponível
     itens: List[Item]
     preco_custo: int
     preco_venda: int

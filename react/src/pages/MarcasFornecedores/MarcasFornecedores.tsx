@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Typography,
   Paper,
   Table,
   TableBody,
@@ -22,6 +21,7 @@ import axios from 'axios';
 import type { MarcaFornecedor } from '../../types';
 import MarcaFornecedorModal from './components/MarcaFornecedorModal';
 import ShadowIconButton from '../../components/ShadowIconButton';
+import Title from '../../components/Title';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE ?? '/api',
@@ -113,9 +113,7 @@ const MarcasFornecedores: React.FC = () => {
 
   return (
     <Box id="marcas-root" sx={{ p: { xs: 2, md: 3 }, display: 'flex', flexDirection: 'column', alignItems: 'stretch', width: '100%' }}>
-      <Typography id="marcas-title" variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 }, textAlign: 'left' }}>
-        Marcas/Fornecedores
-      </Typography>
+      <Title text="Marcas" subtitle='Fornecedores'/>
 
       <Paper id="marcas-paper" sx={{ 
         p: { xs: 2, md: 3 }, 

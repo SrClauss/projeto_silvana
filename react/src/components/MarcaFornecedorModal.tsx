@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import axios from 'axios';
+import api from '../lib/axios'
 import type { MarcaFornecedor } from '../types';
 
 interface MarcaFornecedorModalProps {
@@ -49,9 +49,9 @@ const MarcaFornecedorModal: React.FC<MarcaFornecedorModalProps> = ({
       const token = localStorage.getItem('token');
       let response;
       if (editingMarca) {
-        response = await axios.put(`/marcas-fornecedores/${editingMarca._id}`, { nome, fornecedor }, { headers: { Authorization: `Bearer ${token}` } });
+        response = await api.put(`/marcas-fornecedores/${editingMarca._id}`, { nome, fornecedor }, { headers: { Authorization: `Bearer ${token}` } });
       } else {
-        response = await axios.post('/marcas-fornecedores/', { nome, fornecedor }, { headers: { Authorization: `Bearer ${token}` } });
+        response = await api.post('/marcas-fornecedores/', { nome, fornecedor }, { headers: { Authorization: `Bearer ${token}` } });
       }
       onSave(response.data);
       onClose();
@@ -63,7 +63,7 @@ const MarcaFornecedorModal: React.FC<MarcaFornecedorModalProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth container={document.body}>
       <DialogTitle sx={{ bgcolor: theme.palette.primary.main, color: theme.palette.secondary.main }}>
         {editingMarca ? 'Editar Marca/Fornecedor' : 'Adicionar Marca/Fornecedor'}
       </DialogTitle>

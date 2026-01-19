@@ -17,12 +17,14 @@ class Saida(BaseModel):
     data_saida: datetime = Field(default_factory=datetime.utcnow)
     valor_total: Optional[int] = None
     observacoes: Optional[str] = None
+    produto: Optional[dict] = None  # snapshot do produto sem 'itens'
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
     
 
     class Config:
         populate_by_name = True
+
 
 
 

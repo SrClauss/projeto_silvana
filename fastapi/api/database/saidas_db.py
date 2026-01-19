@@ -44,13 +44,14 @@ async def get_saida_by_id(saida_id: str):
     return await db.saidas.find_one({"_id": saida_id})
 
 async def get_saidas_filtered(page: int = 1, per_page: int = 20, date_from: str | None = None, date_to: str | None = None,
-                               produto_id: str | None = None, produto_query: str | None = None, tag_ids: list | None = None, sort_by: str = 'data', order: str = 'desc'):
+                               produto_id: str | None = None, produto_query: str | None = None, tag_ids: list | None = None, cliente_id: str | None = None, sort_by: str = 'data', order: str = 'desc'):
     """Retorna vendas (saidas tipo 'venda') com filtros, ordenação e paginação.
 
     - date_from / date_to: strings no formato YYYY-MM-DD (date_only)
     - produto_id: filtra por produto exato
     - produto_query: texto para buscar em descricao do produto
     - tag_ids: lista de tag _id para filtrar produtos que possuam qualquer uma das tags (OR)
+    - cliente_id: filtra por cliente exato
     - sort_by: 'valor' ou 'data'
     - order: 'asc' ou 'desc'
     """
@@ -78,6 +79,9 @@ async def get_saidas_filtered(page: int = 1, per_page: int = 20, date_from: str 
 
     if produto_id:
         match_stage["produtos_id"] = produto_id
+
+    if cliente_id:
+        match_stage["cliente_id"] = cliente_id
 
     pipeline = [
         {"$match": match_stage},

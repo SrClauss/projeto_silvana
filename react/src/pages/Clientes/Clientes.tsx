@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
-  Typography,
+
   Paper,
   Table,
   TableBody,
@@ -14,9 +14,10 @@ import {
   CircularProgress,
   IconButton,
 } from '@mui/material';
-import { Add, Visibility, Edit as EditIcon, Delete as DeleteIcon, ShoppingCart } from '@mui/icons-material';
+import Title from '../../components/Title';
+import { Add, Visibility, Edit as EditIcon, Delete as DeleteIcon,  Autorenew, History } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import axios from 'axios';
+import api from '../../lib/axios'
 import { useNavigate } from 'react-router-dom';
 import type { Cliente } from '../../types';
 import ShadowIconButton from '../../components/ShadowIconButton';
@@ -79,7 +80,7 @@ const Clientes: React.FC = () => {
       console.log('Buscando CPF:', cpf);
 
       // Primeiro tentar busca geral
-      const res = await axios.get(`/clientes/?q=${encodeURIComponent(cpf)}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get(`/clientes/?q=${encodeURIComponent(cpf)}`, { headers: { Authorization: `Bearer ${token}` } });
       const clientes: Cliente[] = res.data;
       console.log('Clientes retornados da busca geral:', clientes);
 
@@ -94,7 +95,7 @@ const Clientes: React.FC = () => {
       // Se não encontrou, tentar busca sem query para ver todos os clientes
       if (clienteExato.length === 0) {
         console.log('Nenhum cliente encontrado com CPF exato, buscando todos os clientes...');
-        const allRes = await axios.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
+        const allRes = await api.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
         const allClientes: Cliente[] = allRes.data;
         console.log('Todos os clientes:', allClientes.map(c => ({ nome: c.nome, cpf: c.cpf })));
 
@@ -118,7 +119,7 @@ const Clientes: React.FC = () => {
     if (!entityIdToDelete) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`/clientes/${entityIdToDelete}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/clientes/${entityIdToDelete}`, { headers: { Authorization: `Bearer ${token}` } });
       await loadClientes();
     } catch (error) {
       console.error('Erro ao deletar cliente:', error);
@@ -158,9 +159,9 @@ const Clientes: React.FC = () => {
       const token = localStorage.getItem('token');
       let res;
       if (q && q.trim()) {
-        res = await axios.get(`/clientes/?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
+        res = await api.get(`/clientes/?q=${encodeURIComponent(q)}`, { headers: { Authorization: `Bearer ${token}` } });
       } else {
-        res = await axios.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
+        res = await api.get('/clientes/', { headers: { Authorization: `Bearer ${token}` } });
       }
       const clientes: Cliente[] = res.data;
       setClientes(clientes);
@@ -240,7 +241,7 @@ const Clientes: React.FC = () => {
   const fetchClienteById = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`/clientes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get(`/clientes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       return res.data as Cliente;
     } catch (error) {
       console.error('Erro ao buscar cliente:', error);
@@ -254,9 +255,9 @@ const Clientes: React.FC = () => {
       const token = localStorage.getItem('token');
       const clienteData: ClienteData = newCliente;
       if (editingId) {
-        await axios.put(`/clientes/${editingId}`, clienteData, { headers: { Authorization: `Bearer ${token}` } });
+        await api.put(`/clientes/${editingId}`, clienteData, { headers: { Authorization: `Bearer ${token}` } });
       } else {
-        await axios.post('/clientes/', clienteData, {
+        await api.post('/clientes/', clienteData, {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
@@ -287,8 +288,13 @@ const Clientes: React.FC = () => {
   const paginatedClientes = filteredClientes.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
-      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Clientes</Typography>
+    <Box width="100%">
+
+      <Title
+
+        text="Clientes"
+        subtitle=""
+      />
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
         <Box sx={{ display: 'flex', gap:2 , alignItems: 'center', flexDirection: { xs: 'column', sm: 'row' }, mb: 2 }}>
         
@@ -359,8 +365,12 @@ const Clientes: React.FC = () => {
                         <TableCell>{cliente.telefone}</TableCell>
                         <TableCell>{cliente.cpf}</TableCell>
                         <TableCell>
+                          
+                          <IconButton size="small" onClick={() => navigate(`/clientes/vendas/${cliente._id}`)} aria-label="histórico de vendas" sx={{ color: theme.palette.primary.main, mr: 1 }}>
+                            <History fontSize="small" />
+                          </IconButton>
                           <IconButton size="small" onClick={() => navigate(`/condicionais-cliente/criar?cliente_id=${cliente._id}`)} aria-label="criar condicional" sx={{ color: theme.palette.primary.main, mr: 1 }}>
-                            <ShoppingCart fontSize="small" />
+                            <Autorenew fontSize="small" />
                           </IconButton>
                           <IconButton size="small" onClick={() => handleView(cliente._id)} aria-label="ver" sx={{ color: theme.palette.primary.main, mr: 1 }}>
                             <Visibility fontSize="small" />

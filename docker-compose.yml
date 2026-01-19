@@ -9,6 +9,7 @@ services:
       - ALLOWED_ORIGINS=http://localhost,http://72.60.146.2
       - CORS_ALLOW_CREDENTIALS=true
       - MONGODB_URL=mongodb://mongodb:27017/projeto_silvana
+      - ACCESS_TOKEN_EXPIRE_MINUTES=240
     depends_on:
       - mongodb
     restart: unless-stopped

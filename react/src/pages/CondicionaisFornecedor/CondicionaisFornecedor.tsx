@@ -4,7 +4,6 @@ import {
   Box,
   Typography,
   Button,
-
   Alert,
   Table,
   TableBody,
@@ -25,11 +24,11 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import type { Produto } from '../../types';
 import { Add, Undo as UndoIcon } from '@mui/icons-material';
 import api from '../../lib/axios';
 import ShadowIconButton from '../../components/ShadowIconButton';
+import Title from '../../components/Title';
 
 
 
@@ -55,7 +54,6 @@ function CondicionaisFornecedor() {
   const [statusMap, setStatusMap] = useState<Map<string, StatusDevolucao>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const theme = useTheme();
   const navigate = useNavigate();
 
   // create condicional fornecedor modal
@@ -169,9 +167,7 @@ function CondicionaisFornecedor() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>
-        Condicionais Fornecedor
-      </Typography>
+      <Title text="Condicionais Fornecedor" />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
     <Box sx={{display: 'flex', justifyContent: 'flex-end' }}>

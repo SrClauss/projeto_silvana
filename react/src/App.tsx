@@ -3,6 +3,7 @@ import LoginPage from './pages/Login/LoginPage'
 import Dashboard from './pages/Dashboard/Dashboard';
 import Produtos from './pages/Produtos/Produtos';
 import Clientes from './pages/Clientes/Clientes';
+import VendasCliente from './pages/Clientes/VendasCliente';
 import TagsPage from './pages/Tags/Tags';
 import MarcasFornecedores from './pages/MarcasFornecedores/MarcasFornecedores';
 import Sessoes from './pages/Sessoes/Sessoes';
@@ -23,6 +24,7 @@ function App() {
         <Route path="/dashboard" element={<LoggedLayout activePage="/dashboard"><Dashboard /></LoggedLayout>} />
         <Route path="/produtos" element={<LoggedLayout activePage="/produtos"><Produtos /></LoggedLayout>} />
         <Route path="/clientes" element={<LoggedLayout activePage="/clientes"><Clientes /></LoggedLayout>} />
+        <Route path="/clientes/vendas/:cliente_id" element={<LoggedLayout activePage="/clientes"><VendasCliente /></LoggedLayout>} />
         <Route path="/tags" element={<LoggedLayout activePage="/tags"><TagsPage /></LoggedLayout>} />
         <Route path="/marcas-fornecedores" element={<LoggedLayout activePage="/marcas-fornecedores"><MarcasFornecedores /></LoggedLayout>} />
         <Route path="/sessoes" element={<LoggedLayout activePage="/sessoes"><Sessoes /></LoggedLayout>} />

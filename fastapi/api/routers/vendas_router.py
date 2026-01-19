@@ -77,7 +77,7 @@ async def get_estoque_disponivel(produto_id: str):
 
 @router.get("/", dependencies=[Depends(get_current_user)])
 async def listar_vendas(page: int = 1, per_page: int = 20, date_from: str | None = None, date_to: str | None = None,
-                        produto_id: str | None = None, produto_query: str | None = None, tag_ids: str | None = None, sort_by: str = 'data', order: str = 'desc'):
+                        produto_id: str | None = None, produto_query: str | None = None, tag_ids: str | None = None, cliente_id: str | None = None, sort_by: str = 'data', order: str = 'desc'):
     """
     Lista vendas (saidas tipo 'venda') com filtros, paginação e ordenação.
 
@@ -95,7 +95,7 @@ async def listar_vendas(page: int = 1, per_page: int = 20, date_from: str | None
         tag_list = [t for t in (tag_ids or '').split(',') if t]
         tag_list = tag_list if tag_list else None
         result = await get_saidas_filtered(page=page, per_page=per_page, date_from=date_from, date_to=date_to,
-                                       produto_id=produto_id, produto_query=produto_query, tag_ids=tag_list, sort_by=sort_by, order=order)
+                                       produto_id=produto_id, produto_query=produto_query, tag_ids=tag_list, cliente_id=cliente_id, sort_by=sort_by, order=order)
         # debug logs
         print(f"listar_vendas called: page={page}, per_page={per_page}, date_from={date_from}, date_to={date_to}, produto_id={produto_id}, produto_query={produto_query}, tag_list={tag_list}")
         print("listar_vendas result:", result)
@@ -106,6 +106,24 @@ async def listar_vendas(page: int = 1, per_page: int = 20, date_from: str | None
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
     
+
+
+
+
+@router.get("/cliente/{cliente_id}", dependencies=[Depends(get_current_user)])
+async def listar_vendas_cliente(cliente_id: str, page: int = 1, per_page: int = 20, date_from: str | None = None, date_to: str | None = None,
+                                sort_by: str = 'data', order: str = 'desc'):
+    """
+    Lista vendas de um cliente específico com filtros opcionais de data, paginação e ordenação.
+    """
+    try:
+        result = await get_saidas_filtered(page=page, per_page=per_page, date_from=date_from, date_to=date_to,
+                                       cliente_id=cliente_id, sort_by=sort_by, order=order)
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 

@@ -123,7 +123,7 @@ async def processar_baixa_condicional(condicional_id: str, produtos_devolvidos: 
         quantidade_vendida = quantidade_total - quantidade_devolvida
 
         # Atualizar produto flags
-        remaining_cond_cliente = sum(it.get("quantity", 0) for it in produto.get("itens", []) if it.get("conditional_cliente") or it.get("condicional_cliente_id"))
+        remaining_cond_cliente = sum(it.get("quantity", 0) for it in produto.get("itens", []) if it.get("condicionais_cliente"))
         await db.produtos.update_one(
             {"_id": produto_id},
             {"$set": {"em_condicional_cliente": remaining_cond_cliente > 0}}
@@ -168,10 +168,10 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
     if not produto:
         return {"error": "Produto não encontrado"}
     
-    # Verifica se há estoque disponível (não em condicional)
+    # Verifica se há estoque disponível (não em condicional cliente)
     itens_disponiveis = [
         item for item in produto.get("itens", [])
-        if not item.get("conditional_fornecedor") and not item.get("conditional_cliente")
+        if not item.get("condicionais_cliente")
     ]
     
     estoque_disponivel = sum(item.get("quantity", 0) for item in itens_disponiveis)
@@ -192,13 +192,12 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
         if quantidade_restante <= 0:
             break
         
-        # Encontra o índice do item na lista original
+        # Encontra o índice do item na lista original (apenas itens sem reservass)
         idx = next(
             (i for i, it in enumerate(itens_atualizados) 
              if it.get("acquisition_date") == item.get("acquisition_date") and
                 it.get("quantity") == item.get("quantity") and
-                not it.get("conditional_fornecedor") and
-                not it.get("conditional_cliente")),
+                not it.get("condicionais_cliente")),
             None
         )
         
@@ -208,17 +207,17 @@ async def enviar_produto_condicional_cliente(condicional_id: str, produto_id: st
         item_quantity = itens_atualizados[idx].get("quantity", 0)
         
         if item_quantity <= quantidade_restante:
-            # Marca o item completamente
-            itens_atualizados[idx]["conditional_cliente"] = condicional
+            # Marca o item completamente como reservado (um id por unidade)
+            itens_atualizados[idx]["condicionais_cliente"] = [condicional_id] * item_quantity
             quantidade_restante -= item_quantity
         else:
-            # Divide o item
+            # Divide o item: reduz o remanescente e adiciona um novo item reservado
             itens_atualizados[idx]["quantity"] = item_quantity - quantidade_restante
             novo_item = {
                 "quantity": quantidade_restante,
                 "acquisition_date": itens_atualizados[idx]["acquisition_date"],
-                "conditional_fornecedor": None,
-                "conditional_cliente": condicional
+                "condicionais_fornecedor": itens_atualizados[idx].get("condicionais_fornecedor", []),
+                "condicionais_cliente": [condicional_id] * quantidade_restante
             }
             itens_atualizados.append(novo_item)
             quantidade_restante = 0
@@ -335,7 +334,7 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
         # Começa aplicando devoluções (desmarcar condicional)
         itens_condicional = [
             (i, item) for i, item in enumerate(produto.get("itens", []))
-            if item.get("conditional_cliente") and item.get("conditional_cliente").get("_id") == condicional_id
+            if condicional_id in (item.get("condicionais_cliente") or [])
         ]
 
         itens_atualizados = list(produto.get("itens", []))
@@ -345,16 +344,27 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
             if quantidade_devolucao_restante <= 0:
                 break
             item_qty = item.get("quantity", 0)
+            # number of units reserved for this condicional in this item (usually equals item_qty)
+            reserved_count = (item.get("condicionais_cliente") or []).count(condicional_id)
+            if reserved_count <= 0:
+                continue
+            # If entire item is covered by the reserved count and we need to devolve >= item_qty
             if item_qty <= quantidade_devolucao_restante:
-                itens_atualizados[idx]["conditional_cliente"] = None
+                # remove all reservations for this condicional from the item
+                itens_atualizados[idx]["condicionais_cliente"] = [cid for cid in itens_atualizados[idx].get("condicionais_cliente", []) if cid != condicional_id]
                 quantidade_devolucao_restante -= item_qty
             else:
-                itens_atualizados[idx]["quantity"] = item_qty - quantidade_devolucao_restante
+                # Partially devolve: split the item into reserved and unreserved parts
+                reserved_remaining = item_qty - quantidade_devolucao_restante
+                current_list = itens_atualizados[idx].get("condicionais_cliente", [])
+                # keep the first 'reserved_remaining' occurrences for the reserved part
+                itens_atualizados[idx]["quantity"] = reserved_remaining
+                itens_atualizados[idx]["condicionais_cliente"] = current_list[:reserved_remaining]
                 novo_item = {
                     "quantity": quantidade_devolucao_restante,
                     "acquisition_date": item["acquisition_date"],
-                    "conditional_fornecedor": item.get("conditional_fornecedor"),
-                    "conditional_cliente": None
+                    "condicionais_fornecedor": item.get("condicionais_fornecedor"),
+                    "condicionais_cliente": []
                 }
                 itens_atualizados.append(novo_item)
                 quantidade_devolucao_restante = 0
@@ -370,7 +380,7 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
         quantidade_venda_restante = quantidade_vendida_para_aplicar
         itens_para_venda = [
             (i, item) for i, item in enumerate(itens_atualizados)
-            if item.get("condicional_cliente_id") == condicional_id
+            if condicional_id in (item.get("condicionais_cliente") or [])
         ]
         itens_para_venda.sort(key=lambda x: x[1].get("acquisition_date", datetime.utcnow()))
 
@@ -378,24 +388,56 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
             if quantidade_venda_restante <= 0:
                 break
             item_qty = item.get("quantity", 0)
-            if item_qty <= quantidade_venda_restante:
+            # number of units reserved for this condicional in this item
+            reserved_count = (item.get("condicionais_cliente") or []).count(condicional_id)
+            if reserved_count <= 0:
+                continue
+            use_qty = min(reserved_count, quantidade_venda_restante)
+            if use_qty >= item_qty:
+                # consume whole item
                 itens_atualizados[idx] = None
                 quantidade_venda_restante -= item_qty
             else:
-                itens_atualizados[idx]["quantity"] = item_qty - quantidade_venda_restante
-                quantidade_venda_restante = 0
+                # partially consume reserved units: reduce quantity and reservations
+                itens_atualizados[idx]["quantity"] = item_qty - use_qty
+                current_list = item.get("condicionais_cliente", [])
+                # remove 'use_qty' occurrences of condicional_id from the list
+                removed = 0
+                new_list = []
+                for cid in current_list:
+                    if cid == condicional_id and removed < use_qty:
+                        removed += 1
+                        continue
+                    new_list.append(cid)
+                itens_atualizados[idx]["condicionais_cliente"] = new_list
+                quantidade_venda_restante -= use_qty
+                # if partially consumed, we may want to append an unreserved item fragment, but reserved items are usually isolated
+
 
         itens_atualizados = [item for item in itens_atualizados if item is not None]
 
         # Atualiza o produto e decrementa em_condicional pelo total enviado
         # Ajusta flag em_condicional_cliente conforme itens restantes
-        remaining_cond_cliente = sum(it.get("quantity", 0) for it in itens_atualizados if it.get("conditional_cliente") or it.get("condicional_cliente_id"))
+        remaining_cond_cliente = sum(it.get("quantity", 0) for it in itens_atualizados if it.get("condicionais_cliente"))
         await db.produtos.update_one(
             {"_id": produto_id},
             {
                 "$set": {"itens": itens_atualizados, "updated_at": datetime.utcnow(), "em_condicional_cliente": remaining_cond_cliente > 0}
             }
         )
+
+        # Se estoque total zerou, só apagar se não houver condicionais (fornecedor ou cliente)
+        total_restante = sum(it.get("quantity", 0) for it in itens_atualizados)
+        produto_apagado = False
+        if total_restante == 0:
+            from ..database.produtos_db import can_delete_produto
+            can_delete = await can_delete_produto(produto_id)
+            if can_delete:
+                await db.produtos.delete_one({"_id": produto_id})
+                produto_apagado = True
+
+        # snapshot do produto sem itens para registrar na saida
+        produto_snapshot = {k: v for k, v in (produto or {}).items() if k != 'itens'}
 
         # Registrar devolução
         if quantidade_devolvida > 0:
@@ -413,7 +455,8 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
                     tipo="venda",
                     data_saida=datetime.utcnow(),
                     valor_total=v.get("valor_total"),
-                    observacoes=v.get("observacoes")
+                    observacoes=v.get("observacoes"),
+                    produto=produto_snapshot
                 )
                 result = await db.saidas.insert_one(saida.dict(by_alias=True))
                 vendas_criadas.append({"saida_id": str(result.inserted_id), "produto_id": produto_id, "quantidade": v["quantidade"]})
@@ -425,7 +468,8 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
                     quantidade=quantidade_vendida_para_aplicar,
                     tipo="venda",
                     data_saida=datetime.utcnow(),
-                    observacoes=f"Venda por condicional {condicional_id}"
+                    observacoes=f"Venda por condicional {condicional_id}",
+                    produto=produto_snapshot
                 )
                 result = await db.saidas.insert_one(saida.dict(by_alias=True))
                 vendas_criadas.append({"saida_id": str(result.inserted_id), "produto_id": produto_id, "quantidade": quantidade_vendida_para_aplicar})

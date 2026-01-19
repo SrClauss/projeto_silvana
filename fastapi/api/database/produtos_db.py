@@ -49,8 +49,8 @@ async def create_produto(produto: Produto):
     doc['created_at'] = datetime.utcnow()
 
     # Ensure conditional flags reflect items - MUST set after dict() to override Pydantic defaults
-    has_cond_fornecedor = any(itm.get("condicional_fornecedor_id") for itm in doc.get("itens", []))
-    has_cond_cliente = any(itm.get("condicional_cliente_id") for itm in doc.get("itens", []))
+    has_cond_fornecedor = any((itm.get("condicionais_fornecedor") and len(itm.get("condicionais_fornecedor")) > 0) for itm in doc.get("itens", []))
+    has_cond_cliente = any((itm.get("condicionais_cliente") and len(itm.get("condicionais_cliente")) > 0) for itm in doc.get("itens", []))
     doc['em_condicional_fornecedor'] = bool(has_cond_fornecedor)
     doc['em_condicional_cliente'] = bool(has_cond_cliente)
 
@@ -133,6 +133,13 @@ async def update_produto(produto_id: str, update_data: dict):
                 entrada_doc = await get_entrada_by_id(entrada_id)
                 if entrada_doc:
                     await db.produtos.update_one({"_id": produto_id}, {"$push": {"entradas": entrada_doc}})
+
+            # Update em_condicional flags based on new items array
+            has_cond_fornecedor = any((itm.get("condicionais_fornecedor") and len(itm.get("condicionais_fornecedor")) > 0) for itm in update_data.get("itens", []))
+            has_cond_cliente = any((itm.get("condicionais_cliente") and len(itm.get("condicionais_cliente")) > 0) for itm in update_data.get("itens", []))
+            update_data['em_condicional_fornecedor'] = bool(has_cond_fornecedor)
+            update_data['em_condicional_cliente'] = bool(has_cond_cliente)
+
         except Exception:
             import traceback
             traceback.print_exc()
@@ -146,15 +153,20 @@ async def delete_produto(produto_id: str):
     return await db.produtos.delete_one({"_id": produto_id})
 
 async def can_delete_produto(produto_id: str):
-    produto = await db.produtos.find_one({"_id": produto_id}, projection={"em_condicional_fornecedor": 1, "em_condicional_cliente": 1})
+    produto = await db.produtos.find_one({"_id": produto_id}, projection={"itens": 1})
     if produto is None:
         return None
-    # Only block if explicitly True (not False or missing)
-    em_cond_forn = produto.get("em_condicional_fornecedor", False)
-    em_cond_cli = produto.get("em_condicional_cliente", False)
-    logging.info(f"can_delete_produto {produto_id}: em_condicional_fornecedor={em_cond_forn}, em_condicional_cliente={em_cond_cli}")
-    # Block deletion if any conditional flag is truthy (True, 'true', 1, etc.)
-    return not (bool(em_cond_forn) or bool(em_cond_cli))
+    total_cond_fornecedor = sum(len(it.get("condicionais_fornecedor") or []) for it in produto.get("itens", []))
+    total_cond_cliente = sum(len(it.get("condicionais_cliente") or []) for it in produto.get("itens", []))
+
+    # Além de checks nos itens, verificar se existe alguma condicional_fornecedor referenciando este produto
+    condicional_ref = await db.condicional_fornecedores.find_one({"produtos_id": produto_id, "ativa": True})
+    has_condicional_doc = condicional_ref is not None
+
+    logging.info(f"can_delete_produto {produto_id}: total_cond_fornecedor={total_cond_fornecedor}, total_cond_cliente={total_cond_cliente}, has_condicional_doc={has_condicional_doc}")
+
+    # Bloqueia exclusão se existir qualquer reserva/condicional (por item ou por documento de condicional ativo)
+    return not (total_cond_fornecedor > 0 or total_cond_cliente > 0 or has_condicional_doc)
 
 # Agregações para Produto
 async def get_produto_com_entradas(produto_id: str):

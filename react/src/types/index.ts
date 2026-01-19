@@ -13,8 +13,8 @@ export interface Tag {
 export interface Item {
   quantity: number;
   acquisition_date: string;
-  condicional_fornecedor_id?: string;
-  condicional_cliente_id?: string;
+  condicionais_fornecedor?: string[];
+  condicionais_cliente?: string[];
 }
 
 export interface Entrada {
@@ -35,6 +35,7 @@ export interface Saida {
   produtos_id: string;
   cliente_id?: string;
   fornecedor_id?: string;
+  condicional_fornecedor_id?: string;
   quantidade: number;
   tipo: TypoSaida;
   data_saida: string;

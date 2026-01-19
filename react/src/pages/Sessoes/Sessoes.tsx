@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Typography,
   Paper,
   Table,
   TableBody,
@@ -17,10 +16,11 @@ import {
 } from '@mui/material';
 import { Add, Search, Edit, Delete } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import axios from 'axios';
+import api from '../../lib/axios';
 import type { Sessao } from '../../types';
 import SessaoModal from './components/SessaoModal';
 import ShadowIconButton from '../../components/ShadowIconButton';
+import Title from '../../components/Title';
 
 const Sessoes: React.FC = () => {
   const theme = useTheme();
@@ -45,7 +45,7 @@ const Sessoes: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/sessoes/', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/sessoes/', { headers: { Authorization: `Bearer ${token}` } });
       setSessoes(res.data);
     } catch (e) {
       console.error('Erro ao carregar sessoes', e);
@@ -65,7 +65,7 @@ const Sessoes: React.FC = () => {
     if (!window.confirm('Confirma exclusão da sessão?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`/sessoes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/sessoes/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       setSessoes(prev => prev.filter(p => p._id !== id));
     } catch (e) {
       console.error('Erro ao excluir', e);
@@ -79,7 +79,7 @@ const Sessoes: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, display: 'flex', flexDirection: 'column', alignItems: 'stretch', width: '100%' }}>
-      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Sessões</Typography>
+      <Title text="Sessões" subtitle='Localização de Produtos'/>
 
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>

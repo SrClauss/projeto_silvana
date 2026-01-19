@@ -21,8 +21,9 @@ import api from '../../lib/axios';
 import type { Item, MarcaFornecedor, Produto, Tag } from '../../types';
 import ProdutoModal from '../../components/ProdutoModal';
 import ShadowIconButton from '../../components/ShadowIconButton';
+import Title from '../../components/Title';
 
-type NewProduto = Omit<Produto, '_id' | 'em_condicional' | 'saidas' | 'entradas' | 'created_at' | 'updated_at'>;
+type NewProduto = Omit<Produto, '_id' | 'em_condicional_fornecedor' | 'em_condicional_cliente' | 'saidas' | 'entradas' | 'created_at' | 'updated_at'>;
 
 const CriarCondicionalFornecedor: React.FC = () => {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ const CriarCondicionalFornecedor: React.FC = () => {
   const [dataCondicional, setDataCondicional] = useState(new Date().toISOString().split('T')[0]);
   const [observacoes, setObservacoes] = useState('');
   const [quantidadeMaxDevolucao, setQuantidadeMaxDevolucao] = useState<string>('');
+  const [prazoDevolucao, setPrazoDevolucao] = useState<string>('');
 
   const [produtosPendentes, setProdutosPendentes] = useState<NewProduto[]>([]);
 
@@ -211,6 +213,7 @@ const CriarCondicionalFornecedor: React.FC = () => {
       const condData = {
         fornecedor_id: selectedFornecedor._id,
         quantidade_max_devolucao: quantidadeMaxDevolucao ? Number(quantidadeMaxDevolucao) : null,
+        prazo_devolucao: prazoDevolucao ? Number(prazoDevolucao) : null,
         data_condicional: dataCondicional,
         observacoes,
       };
@@ -253,9 +256,7 @@ const CriarCondicionalFornecedor: React.FC = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        Criar Condicional Fornecedor
-      </Typography>
+      <Title text="Criar Condicional Fornecedor" />
 
       {/* Seção 1: Fornecedor */}
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -297,6 +298,15 @@ const CriarCondicionalFornecedor: React.FC = () => {
               type="number"
               value={quantidadeMaxDevolucao}
               onChange={(e) => setQuantidadeMaxDevolucao(e.target.value)}
+              fullWidth
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Prazo de Devolução (dias)"
+              type="number"
+              value={prazoDevolucao}
+              onChange={(e) => setPrazoDevolucao(e.target.value)}
               fullWidth
             />
           </Grid>
@@ -383,6 +393,7 @@ const CriarCondicionalFornecedor: React.FC = () => {
         modalTagInput={modalTagInput}
         setModalTagInput={setModalTagInput}
         tagOptions={tagOptions}
+        setTagOptions={setTagOptions}
         loadingTags={loadingTags}
         searchTags={searchTags}
         createTag={createTag}

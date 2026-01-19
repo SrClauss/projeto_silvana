@@ -29,10 +29,10 @@ import {
   CircularProgress,
   Tooltip,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import type { CalcResult, SaleDraft, SaleItem, CondicionalCliente as CondicionalClienteType, CalcProduct, CondicionalProduto, Produto } from '../../types';
 import { CheckCircle as CheckCircleIcon, Delete as DeleteIcon, Add } from '@mui/icons-material';
 import api from '../../lib/axios';
+import Title from '../../components/Title';
 
 
 function CondicionaisCliente() {
@@ -46,8 +46,6 @@ function CondicionaisCliente() {
   const [selectedCondicional, setSelectedCondicional] = useState<CondicionalClienteType | null>(null);
   const [codigosDevolvidos, setCodigosDevolvidos] = useState<string[]>([]);
   const [novoCodigoInput, setNovoCodigoInput] = useState('');
-
-  const theme = useTheme();
 
   // adicionar produto modal
   const [addProdutoModalOpen, setAddProdutoModalOpen] = useState(false);
@@ -155,7 +153,7 @@ function CondicionaisCliente() {
     if (selectedCondicional) {
       fetchCalcular(selectedCondicional._id, codigosDevolvidos);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [codigosDevolvidos, selectedCondicional]);
 
   const handleConfirmProcess = async () => {
@@ -219,9 +217,7 @@ function CondicionaisCliente() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>
-        Condicionais Cliente
-      </Typography>
+      <Title text="Condicionais Cliente" />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -256,7 +252,8 @@ function CondicionaisCliente() {
                   <TableCell>
                     <Chip 
                       label={`${getTotalProdutos(condicional.produtos)} item(s)`} 
-                      size="small" 
+                      size="small"
+                      color='primary' variant='outlined' 
                     />
                   </TableCell>
                   <TableCell>
@@ -264,6 +261,7 @@ function CondicionaisCliente() {
                       label={condicional.ativa ? 'Ativa' : 'Encerrada'}
                       color={condicional.ativa ? 'success' : 'default'}
                       size="small"
+                     
                     />
                   </TableCell>
                   <TableCell>

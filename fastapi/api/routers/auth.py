@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import os
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
@@ -8,9 +9,12 @@ from ..database.users_db import get_user_by_email, create_user
 
 router = APIRouter()
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-SECRET_KEY = "your-secret-key-change-this"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Read secrets/config from environment when available (fallback to current defaults)
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this")
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+# Access token duration in minutes (default 30). To set ~4 hours use 240.
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
 security = HTTPBearer()
 

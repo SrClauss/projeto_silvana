@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box,
-  Typography,
   Paper,
   Table,
   TableBody,
@@ -18,10 +17,11 @@ import {
 } from '@mui/material';
 import { Add, Search, Visibility, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
-import axios from 'axios';
+import api from '../../lib/axios';
 import type { Tag } from '../../types';
 import TagsModal from './components/TagsModal';
 import ShadowIconButton from '../../components/ShadowIconButton';
+import Title from '../../components/Title';
 
 const TagsPage: React.FC = () => {
   const theme = useTheme();
@@ -52,7 +52,7 @@ const TagsPage: React.FC = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get('/produtos/tags/', { headers: { Authorization: `Bearer ${token}` } });
+      const res = await api.get('/produtos/tags/', { headers: { Authorization: `Bearer ${token}` } });
       setTags(res.data);
     } catch (e) {
       console.error(e);
@@ -93,7 +93,7 @@ const TagsPage: React.FC = () => {
     if (!window.confirm('Confirma exclusão da tag?')) return;
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`/produtos/tags/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      await api.delete(`/produtos/tags/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       setTags((t) => t.filter(x => x._id !== id));
     } catch (e) { console.error(e); }
   };
@@ -106,22 +106,26 @@ const TagsPage: React.FC = () => {
       return;
     }
     setCreating(true);
+    type AxiosErrorLike = { response?: { data?: { detail?: string }; status?: number } };
     try {
       const token = localStorage.getItem('token');
       if (editingId) {
-        await axios.put(`/produtos/tags/${editingId}`, { descricao: trimmed }, { headers: { Authorization: `Bearer ${token}` } });
+        await api.put(`/produtos/tags/${editingId}`, { descricao: trimmed }, { headers: { Authorization: `Bearer ${token}` } });
         setTags((t) => t.map(x => x._id === editingId ? { ...x, descricao: trimmed } : x));
       } else {
-        const res = await axios.post('/produtos/tags/', { descricao: trimmed }, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await api.post('/produtos/tags/', { descricao: trimmed }, { headers: { Authorization: `Bearer ${token}` } });
         setTags((t) => [...t, res.data]);
       }
       setOpenModal(false);
       setNewTag('');
       setEditingId(null);
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e);
-      if (e?.response?.data?.detail) {
-        alert(String(e.response.data.detail));
+      if (e && typeof e === 'object' && 'response' in e) {
+        const r = (e as AxiosErrorLike).response;
+        if (r?.data?.detail) {
+          alert(String(r.data.detail));
+        }
       }
     } finally { setCreating(false); }
   };
@@ -130,7 +134,7 @@ const TagsPage: React.FC = () => {
 
   return (
     <Box sx={{ p: { xs: 2, md: 3 }, width: '100%' }}>
-      <Typography variant="h4" sx={{ color: theme.palette.primary.main, fontFamily: 'serif', fontWeight: 700, mb: { xs: 2, md: 3 } }}>Tags</Typography>
+      <Title text="Tags" />
       <Paper sx={{ p: { xs: 2, md: 3 }, mb: 2, borderRadius: 2, maxWidth: '100%' }}>
         <Box sx={{ display: 'flex', gap: 2, mb: 2, }}>
           <TextField
