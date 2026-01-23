@@ -31,8 +31,13 @@ class CalcularRetornoRequest(BaseModel):
 
 @router.post("/", dependencies=[Depends(get_current_user)])
 async def create_condicional_cliente_endpoint(condicional: CondicionalCliente):
-    condicional_id = await create_condicional_cliente(condicional)
-    return {"id": condicional_id}
+    result = await create_condicional_cliente(condicional)
+    
+    # Check if result is an error dict
+    if isinstance(result, dict) and result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return {"id": result}
 
 @router.get("/", dependencies=[Depends(get_current_user)])
 async def get_condicional_clientes_endpoint():
@@ -74,6 +79,21 @@ async def delete_condicional_cliente_endpoint(condicional_id: str):
 async def enviar_produto_endpoint(condicional_id: str, request: EnviarProdutoRequest):
     """
     Envia um produto como condicional para o cliente.
+    Marca itens no produto com condicional_cliente_id.
+    """
+    result = await enviar_produto_condicional_cliente(
+        condicional_id, request.produto_id, request.quantidade
+    )
+    
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    
+    return result
+
+@router.post("/{condicional_id}/adicionar-produto", dependencies=[Depends(get_current_user)])
+async def adicionar_produto_endpoint(condicional_id: str, request: EnviarProdutoRequest):
+    """
+    Adiciona um produto ao condicional de cliente (alias para enviar-produto).
     Marca itens no produto com condicional_cliente_id.
     """
     result = await enviar_produto_condicional_cliente(

@@ -28,6 +28,7 @@ import {
   Autocomplete,
   CircularProgress,
   Tooltip,
+  Snackbar,
 } from '@mui/material';
 import type { CalcResult, SaleDraft, SaleItem, CondicionalCliente as CondicionalClienteType, CalcProduct, CondicionalProduto, Produto } from '../../types';
 import { CheckCircle as CheckCircleIcon, Delete as DeleteIcon, Add } from '@mui/icons-material';
@@ -39,6 +40,12 @@ function CondicionaisCliente() {
   const [condicionais, setCondicionais] = useState<CondicionalClienteType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // Loading states for operations
+  const [addingProduto, setAddingProduto] = useState(false);
+  const [processingReturn, setProcessingReturn] = useState(false);
+  const [loadingCondicionalCompleta, setLoadingCondicionalCompleta] = useState(false);
   
   const navigate = useNavigate();
   
@@ -109,13 +116,27 @@ function CondicionaisCliente() {
   const handleAddProduto = async () => {
     if (!addProdutoForm.condicional_id) return;
     if (!addProdutoForm.produto_id) return setError('Selecione um produto válido');
+    
+    setAddingProduto(true);
+    setError(null);
+    
     try {
-      await api.post(`/condicionais-cliente/${addProdutoForm.condicional_id}/adicionar-produto`, { produto_id: addProdutoForm.produto_id, quantidade: addProdutoForm.quantidade });
+      await api.post(`/condicionais-cliente/${addProdutoForm.condicional_id}/adicionar-produto`, { 
+        produto_id: addProdutoForm.produto_id, 
+        quantidade: addProdutoForm.quantidade 
+      });
       setAddProdutoModalOpen(false);
+      setSuccessMessage('Produto adicionado com sucesso!');
       fetchCondicionais();
     } catch (err: unknown) {
-      console.error('Erro ao adicionar produto ao condicional', err);
-      setError('Erro ao adicionar produto');
+      let errorMessage = 'Erro ao adicionar produto';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const response = (err as { response?: { data?: { detail?: string } } }).response;
+        errorMessage = response?.data?.detail || errorMessage;
+      }
+      setError(errorMessage);
+    } finally {
+      setAddingProduto(false);
     }
   };
 
@@ -125,12 +146,18 @@ function CondicionaisCliente() {
   // View condicional completa
   const [viewCondicional, setViewCondicional] = useState<CondicionalClienteType | null>(null);
   const fetchCondicionalCompleta = async (id: string) => {
+    setLoadingCondicionalCompleta(true);
     try {
       const res = await api.get(`/condicionais-cliente/${id}/completa`);
       setViewCondicional(res.data);
     } catch (e) {
-      console.error('Erro ao buscar condicional completa', e);
+      const errorMsg = e && typeof e === 'object' && 'response' in e 
+        ? ((e as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Erro ao buscar condicional')
+        : 'Erro ao buscar condicional';
+      setError(errorMsg);
       setViewCondicional(null);
+    } finally {
+      setLoadingCondicionalCompleta(false);
     }
   };
 
@@ -143,7 +170,10 @@ function CondicionaisCliente() {
       const res = await api.post(`/condicionais-cliente/${condId}/calcular-retorno`, { produtos_devolvidos_codigos: devolvidos });
       setCalcResult(res.data);
     } catch (e) {
-      console.error('Erro ao calcular retorno', e);
+      const errorMsg = e && typeof e === 'object' && 'response' in e 
+        ? ((e as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Erro ao calcular retorno')
+        : 'Erro ao calcular retorno';
+      setError(errorMsg);
       setCalcResult(null);
     }
   };
@@ -187,10 +217,17 @@ function CondicionaisCliente() {
       });
     });
 
+    setProcessingReturn(true);
+    setError(null);
+
     try {
-      await api.post(`/condicionais-cliente/${selectedCondicional._id}/processar-retorno`, { produtos_devolvidos_codigos: codigosDevolvidos, vendas: vendasFlat });
+      await api.post(`/condicionais-cliente/${selectedCondicional._id}/processar-retorno`, { 
+        produtos_devolvidos_codigos: codigosDevolvidos, 
+        vendas: vendasFlat 
+      });
       setProcessarModalOpen(false);
       setSalesDraft([]);
+      setSuccessMessage('Retorno processado com sucesso!');
       fetchCondicionais();
     } catch (err: unknown) {
       let respDetail: string | undefined;
@@ -200,6 +237,8 @@ function CondicionaisCliente() {
       }
       const msg = respDetail ?? (err instanceof Error ? err.message : String(err));
       setError(msg || 'Erro ao processar retorno');
+    } finally {
+      setProcessingReturn(false);
     }
   };
 
@@ -219,8 +258,18 @@ function CondicionaisCliente() {
     <Box sx={{ p: 3 }}>
       <Title text="Condicionais Cliente" />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMessage(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setSuccessMessage(null)}>
+          {successMessage}
+        </Alert>
+      </Snackbar>
       
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
         <Button variant="contained" startIcon={<Add />} onClick={() => navigate('/condicionais-cliente/criar')}>Adicionar</Button>
@@ -278,23 +327,24 @@ function CondicionaisCliente() {
                         variant="outlined"
                         size="small"
                         onClick={() => handleViewCondicional(condicional._id)}
+                        disabled={loadingCondicionalCompleta}
                       >
-                        Visualizar
+                        {loadingCondicionalCompleta ? <CircularProgress size={20} /> : 'Visualizar'}
                       </Button>
                       <Button
                         variant="outlined"
                         size="small"
                         onClick={() => { setAddProdutoForm({ produto_id: '', quantidade: 1, condicional_id: condicional._id }); setAddProdutoModalOpen(true); }}
-                        disabled={!condicional.ativa}
+                        disabled={!condicional.ativa || addingProduto}
                       >
                         Adicionar Produto
                       </Button>
                       <Button
                         variant="contained"
                         size="small"
-                        startIcon={<CheckCircleIcon />}
+                        startIcon={processingReturn ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon />}
                         onClick={() => handleOpenProcessarModal(condicional)}
-                        disabled={!condicional.ativa}
+                        disabled={!condicional.ativa || processingReturn}
                       >
                         Processar Retorno
                       </Button>
@@ -550,19 +600,23 @@ function CondicionaisCliente() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setProcessarModalOpen(false); setSalesDraft([]); }}>Cancelar</Button>
+          <Button onClick={() => { setProcessarModalOpen(false); setSalesDraft([]); }} disabled={processingReturn}>
+            Cancelar
+          </Button>
           <Button
             onClick={handleConfirmProcess}
             variant="contained"
             color="success"
+            disabled={processingReturn}
+            startIcon={processingReturn ? <CircularProgress size={16} color="inherit" /> : null}
           >
-            Confirmar e Processar
+            {processingReturn ? 'Processando...' : 'Confirmar e Processar'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Add Produto Modal */}
-      <Dialog open={addProdutoModalOpen} onClose={() => setAddProdutoModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={addProdutoModalOpen} onClose={() => !addingProduto && setAddProdutoModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Adicionar Produto ao Condicional</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -571,6 +625,7 @@ function CondicionaisCliente() {
               options={productOptions}
               getOptionLabel={(opt: Produto) => `${opt.codigo_interno} — ${opt.descricao}`}
               loading={loadingProducts}
+              disabled={addingProduto}
               onInputChange={(_e, v) => { if (v && v.length >= 2) searchProducts(v); }}
               onChange={(_e, value) => setAddProdutoForm({ ...addProdutoForm, produto_id: value ? value._id : '' })}
               renderInput={(params) => (
@@ -578,16 +633,27 @@ function CondicionaisCliente() {
               )}
               sx={{ mb: 1 }}
             />
-            <TextField label="Quantidade" type="number" value={addProdutoForm.quantidade} onChange={(e) => setAddProdutoForm({ ...addProdutoForm, quantidade: Math.max(1, parseInt(e.target.value) || 1) })} />
+            <TextField 
+              label="Quantidade" 
+              type="number" 
+              value={addProdutoForm.quantidade} 
+              onChange={(e) => setAddProdutoForm({ ...addProdutoForm, quantidade: Math.max(1, parseInt(e.target.value) || 1) })} 
+              disabled={addingProduto}
+            />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddProdutoModalOpen(false)}>Cancelar</Button>
-          <Tooltip title="Adicionar Produto">
-            <IconButton onClick={handleAddProduto}>
-              <Add />
-            </IconButton>
-          </Tooltip>
+          <Button onClick={() => setAddProdutoModalOpen(false)} disabled={addingProduto}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleAddProduto}
+            variant="contained"
+            disabled={addingProduto || !addProdutoForm.produto_id}
+            startIcon={addingProduto ? <CircularProgress size={16} color="inherit" /> : <Add />}
+          >
+            {addingProduto ? 'Adicionando...' : 'Adicionar'}
+          </Button>
         </DialogActions>
       </Dialog>
 
