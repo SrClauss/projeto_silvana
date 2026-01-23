@@ -631,7 +631,22 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
                     produto=produto_snapshot
                 )
                 result = await db.saidas.insert_one(saida.dict(by_alias=True))
-                vendas_criadas.append({"saida_id": str(result.inserted_id), "produto_id": produto_id, "quantidade": v["quantidade"]})
+                saida_id = str(result.inserted_id)
+                vendas_criadas.append({"saida_id": saida_id, "produto_id": produto_id, "quantidade": v["quantidade"]})
+                
+                # Calculate and create taxes for this sale
+                if v.get("valor_total") and v["valor_total"] > 0:
+                    from .imposto_config_db import calcular_e_criar_impostos_para_venda
+                    try:
+                        impostos_ids = await calcular_e_criar_impostos_para_venda(
+                            saida_id=saida_id,
+                            valor_venda=v["valor_total"],
+                            produto=produto_snapshot,
+                            data_venda=datetime.utcnow()
+                        )
+                        logger.info(f"Created {len(impostos_ids)} tax records for sale {saida_id}")
+                    except Exception as e:
+                        logger.error(f"Error creating taxes for sale {saida_id}: {e}")
         else:
             if quantidade_vendida_para_aplicar > 0:
                 saida = Saida(
@@ -644,7 +659,23 @@ async def processar_retorno_condicional_cliente(condicional_id: str, produtos_de
                     produto=produto_snapshot
                 )
                 result = await db.saidas.insert_one(saida.dict(by_alias=True))
-                vendas_criadas.append({"saida_id": str(result.inserted_id), "produto_id": produto_id, "quantidade": quantidade_vendida_para_aplicar})
+                saida_id = str(result.inserted_id)
+                vendas_criadas.append({"saida_id": saida_id, "produto_id": produto_id, "quantidade": quantidade_vendida_para_aplicar})
+                
+                # Calculate and create taxes for this sale (if valor_total available from produto)
+                valor_venda = produto_snapshot.get("valor_venda", 0) * quantidade_vendida_para_aplicar if produto_snapshot else 0
+                if valor_venda > 0:
+                    from .imposto_config_db import calcular_e_criar_impostos_para_venda
+                    try:
+                        impostos_ids = await calcular_e_criar_impostos_para_venda(
+                            saida_id=saida_id,
+                            valor_venda=valor_venda,
+                            produto=produto_snapshot,
+                            data_venda=datetime.utcnow()
+                        )
+                        logger.info(f"Created {len(impostos_ids)} tax records for sale {saida_id}")
+                    except Exception as e:
+                        logger.error(f"Error creating taxes for sale {saida_id}: {e}")
 
     # Encerra a condicional
     await update_condicional_cliente(condicional_id, {"data_devolucao": datetime.utcnow(), "ativa": False})

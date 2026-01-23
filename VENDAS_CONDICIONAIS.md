@@ -707,3 +707,174 @@ curl -X POST http://localhost:8000/condicionais-cliente/cond456/processar-retorn
     "produtos_devolvidos_codigos": ["VEST001", "VEST002"]
   }'
 ```
+
+## Sistema de Impostos e Despesas
+
+### Configuração de Impostos
+
+O sistema permite configurar impostos que serão aplicados automaticamente às vendas.
+
+#### POST `/impostos-config/`
+Cria uma nova configuração de imposto.
+
+**Request Body:**
+```json
+{
+  "nome": "ICMS Padrão",
+  "tipo_imposto": "ICMS",
+  "aliquota_percentual": 18.0,
+  "ativa": true,
+  "dias_vencimento": 30,
+  "data_inicio": "2026-01-01T00:00:00Z",
+  "data_fim": null,
+  "valor_minimo_venda": 100.0,
+  "observacoes": "Alíquota padrão para produtos"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "config_abc123"
+}
+```
+
+#### GET `/impostos-config/ativas`
+Lista configurações ativas para uma data específica.
+
+**Query Params:**
+- `data_referencia`: Data ISO (opcional, default = hoje)
+
+**Response:**
+```json
+[
+  {
+    "_id": "config_abc123",
+    "nome": "ICMS Padrão",
+    "tipo_imposto": "ICMS",
+    "aliquota_percentual": 18.0,
+    "ativa": true,
+    "dias_vencimento": 30
+  }
+]
+```
+
+### Impostos A Recolher
+
+Impostos são criados automaticamente quando uma venda é processada, baseados nas configurações ativas.
+
+#### GET `/impostos/pendentes`
+Lista todos os impostos pendentes (não pagos).
+
+**Response:**
+```json
+[
+  {
+    "_id": "imposto_xyz789",
+    "saida_id": "saida_abc123",
+    "valor_imposto": 360.0,
+    "tipo_imposto": "ICMS",
+    "data_vencimento": "2026-02-15T00:00:00Z",
+    "status": "pendente",
+    "created_at": "2026-01-15T10:30:00Z"
+  }
+]
+```
+
+#### POST `/impostos/{id}/marcar-pago`
+Marca um imposto como pago.
+
+**Request Body:**
+```json
+{
+  "data_pagamento": "2026-02-10T00:00:00Z"
+}
+```
+
+#### GET `/impostos/agregados/periodo`
+Retorna total de impostos por tipo em um período.
+
+**Query Params:**
+- `data_inicio`: Data ISO
+- `data_fim`: Data ISO
+
+**Response:**
+```json
+[
+  {
+    "_id": "ICMS",
+    "total": 5400.0,
+    "count": 15
+  },
+  {
+    "_id": "PIS",
+    "total": 650.0,
+    "count": 15
+  }
+]
+```
+
+### Despesas
+
+Sistema para registrar e acompanhar despesas do negócio.
+
+#### POST `/despesas/`
+Cria uma nova despesa.
+
+**Request Body:**
+```json
+{
+  "descricao": "Aluguel loja",
+  "valor": 250000,
+  "data_despesa": "2026-01-01T00:00:00Z",
+  "categoria": "fixos",
+  "observacoes": "Aluguel mensal"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "despesa_def456"
+}
+```
+
+#### GET `/despesas/mes/{ano}/{mes}`
+Lista despesas de um mês específico.
+
+**Path Params:**
+- `ano`: Ano (ex: 2026)
+- `mes`: Mês (1-12)
+
+**Response:**
+```json
+[
+  {
+    "_id": "despesa_def456",
+    "descricao": "Aluguel loja",
+    "valor": 250000,
+    "categoria": "fixos",
+    "data_despesa": "2026-01-01T00:00:00Z"
+  }
+]
+```
+
+### Como Funciona o Cálculo Automático de Impostos
+
+1. **Configuração**: Administrador cria configurações de impostos (`POST /impostos-config/`)
+2. **Venda**: Quando uma venda é processada (ex: em `processar-retorno` de condicional)
+3. **Cálculo**: Sistema identifica configurações ativas aplicáveis à venda
+4. **Criação**: Imposto é calculado e registrado automaticamente
+5. **Vencimento**: Data de vencimento é calculada (ex: 30 dias após venda)
+6. **Consulta**: Impostos podem ser consultados em `/impostos/pendentes`
+7. **Pagamento**: Marcar como pago com `/impostos/{id}/marcar-pago`
+
+**Exemplo de Fluxo:**
+```
+1. Config: ICMS 18% ativo desde 01/01/2026
+2. Venda: R$ 2.000,00 em 15/01/2026
+3. Cálculo: R$ 2.000 × 18% = R$ 360,00
+4. Imposto criado: R$ 360,00, vencimento 15/02/2026
+5. Consulta em /impostos/pendentes mostra o imposto
+6. Após pagamento, marcar como pago
+```
