@@ -23,6 +23,7 @@ import {
   CircularProgress,
   IconButton,
   Tooltip,
+  Snackbar,
 } from '@mui/material';
 import type { Produto } from '../../types';
 import { Add, Undo as UndoIcon } from '@mui/icons-material';
@@ -54,6 +55,12 @@ function CondicionaisFornecedor() {
   const [statusMap, setStatusMap] = useState<Map<string, StatusDevolucao>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // Loading states
+  const [addingProduto, setAddingProduto] = useState(false);
+  const [loadingStatusMap, setLoadingStatusMap] = useState(false);
+  
   const navigate = useNavigate();
 
   // create condicional fornecedor modal
@@ -88,6 +95,7 @@ function CondicionaisFornecedor() {
 
 
   const fetchCondicionais = async () => {
+    setLoadingStatusMap(true);
     try {
       const response = await api.get('/condicionais-fornecedor/');
       setCondicionais(response.data);
@@ -105,9 +113,14 @@ function CondicionaisFornecedor() {
       setStatusMap(newStatusMap);
       
       setLoading(false);
-    } catch {
-      setError('Erro ao carregar condicionais de fornecedor');
+    } catch (err) {
+      const errorMsg = err && typeof err === 'object' && 'response' in err
+        ? ((err as { response?: { data?: { detail?: string } } }).response?.data?.detail || 'Erro ao carregar condicionais de fornecedor')
+        : 'Erro ao carregar condicionais de fornecedor';
+      setError(errorMsg);
       setLoading(false);
+    } finally {
+      setLoadingStatusMap(false);
     }
   };
 
@@ -127,24 +140,44 @@ function CondicionaisFornecedor() {
   const handleAddProduto = async () => {
     if (!addProdutoForm.condicional_id) return;
     if (!addProdutoForm.produto_id) return setError('Selecione um produto válido');
+    
+    setAddingProduto(true);
+    setError(null);
+    
     try {
-      await api.post(`/condicionais-fornecedor/${addProdutoForm.condicional_id}/adicionar-produto`, { produto_id: addProdutoForm.produto_id, quantidade: addProdutoForm.quantidade });
+      await api.post(`/condicionais-fornecedor/${addProdutoForm.condicional_id}/adicionar-produto`, { 
+        produto_id: addProdutoForm.produto_id, 
+        quantidade: addProdutoForm.quantidade 
+      });
       setAddProdutoModalOpen(false);
+      setSuccessMessage('Produto adicionado com sucesso!');
       fetchCondicionais();
     } catch (err: unknown) {
-      console.error('Erro ao adicionar produto ao condicional', err);
-      setError('Erro ao adicionar produto');
+      let errorMessage = 'Erro ao adicionar produto';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const response = (err as { response?: { data?: { detail?: string } } }).response;
+        errorMessage = response?.data?.detail || errorMessage;
+      }
+      setError(errorMessage);
+    } finally {
+      setAddingProduto(false);
     }
   };
 
   const handleCreateCondicionalFornecedor = async () => {
+    setError(null);
     try {
       await api.post(`/condicionais-fornecedor/`, createCondFornecedorForm);
       setCreateCondFornecedorOpen(false);
+      setSuccessMessage('Condicional fornecedor criado com sucesso!');
       fetchCondicionais();
     } catch (err: unknown) {
-      console.error('Erro ao criar condicional fornecedor', err);
-      setError('Erro ao criar condicional fornecedor');
+      let errorMessage = 'Erro ao criar condicional fornecedor';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const response = (err as { response?: { data?: { detail?: string } } }).response;
+        errorMessage = response?.data?.detail || errorMessage;
+      }
+      setError(errorMessage);
     }
   };
 
@@ -169,7 +202,19 @@ function CondicionaisFornecedor() {
     <Box sx={{ p: 3 }}>
       <Title text="Condicionais Fornecedor" />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={4000}
+        onClose={() => setSuccessMessage(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert severity="success" onClose={() => setSuccessMessage(null)}>
+          {successMessage}
+        </Alert>
+      </Snackbar>
+      
     <Box sx={{display: 'flex', justifyContent: 'flex-end' }}>
 
 
@@ -256,12 +301,15 @@ function CondicionaisFornecedor() {
                     <TableCell>
                       <Box sx={{ display: 'flex', gap: 1 }}>
                         <Tooltip title="Adicionar Produto">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenAddProduto(condicional)}
-                          >
-                            <Add />
-                          </IconButton>
+                          <span>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenAddProduto(condicional)}
+                              disabled={addingProduto}
+                            >
+                              {addingProduto ? <CircularProgress size={20} /> : <Add />}
+                            </IconButton>
+                          </span>
                         </Tooltip>
                         <Button
                           variant="outlined"
@@ -300,7 +348,7 @@ function CondicionaisFornecedor() {
       </Dialog>
 
       {/* Add Produto Modal */}
-      <Dialog open={addProdutoModalOpen} onClose={() => setAddProdutoModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={addProdutoModalOpen} onClose={() => !addingProduto && setAddProdutoModalOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Adicionar Produto ao Condicional</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
@@ -309,6 +357,7 @@ function CondicionaisFornecedor() {
               options={productOptions}
               getOptionLabel={(opt: Produto) => `${opt.codigo_interno} — ${opt.descricao}`}
               loading={loadingProducts}
+              disabled={addingProduto}
               onInputChange={(_e, v) => { if (v && v.length >= 2) searchProducts(v); }}
               onChange={(_e, value) => setAddProdutoForm({ ...addProdutoForm, produto_id: value ? value._id : '' })}
               renderInput={(params) => (
@@ -316,19 +365,34 @@ function CondicionaisFornecedor() {
               )}
               sx={{ mb: 1 }}
             />
-            <TextField label="Quantidade" type="number" value={addProdutoForm.quantidade} onChange={(e) => setAddProdutoForm({ ...addProdutoForm, quantidade: Math.max(1, parseInt(e.target.value) || 1) })} />
-            <TextField label="Data de Adição" type="date" value={addProdutoForm.data_adicao} onChange={(e) => setAddProdutoForm({ ...addProdutoForm, data_adicao: e.target.value })} />
+            <TextField 
+              label="Quantidade" 
+              type="number" 
+              value={addProdutoForm.quantidade} 
+              onChange={(e) => setAddProdutoForm({ ...addProdutoForm, quantidade: Math.max(1, parseInt(e.target.value) || 1) })} 
+              disabled={addingProduto}
+            />
+            <TextField 
+              label="Data de Adição" 
+              type="date" 
+              value={addProdutoForm.data_adicao} 
+              onChange={(e) => setAddProdutoForm({ ...addProdutoForm, data_adicao: e.target.value })} 
+              disabled={addingProduto}
+            />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setAddProdutoModalOpen(false)}>Cancelar</Button>
-          <ShadowIconButton
-            variant="primary"
+          <Button onClick={() => setAddProdutoModalOpen(false)} disabled={addingProduto}>
+            Cancelar
+          </Button>
+          <Button
             onClick={handleAddProduto}
-            disabled={!addProdutoForm.produto_id || addProdutoForm.quantidade < 1}
+            variant="contained"
+            disabled={addingProduto || !addProdutoForm.produto_id}
+            startIcon={addingProduto ? <CircularProgress size={16} color="inherit" /> : null}
           >
-            Adicionar
-          </ShadowIconButton>
+            {addingProduto ? 'Adicionando...' : 'Adicionar'}
+          </Button>
         </DialogActions>
       </Dialog>
 

@@ -19,6 +19,9 @@ from api.routers import (
     marcas_fornecedores_router,
     sessoes_router,
     vendas_router,
+    imposto_config_router,
+    impostos_router,
+    despesas_router,
 )
 
 app = FastAPI()
@@ -107,3 +110,6 @@ app.include_router(marcas_fornecedores_router.router, prefix="/marcas-fornecedor
 app.include_router(sessoes_router.router, prefix="/sessoes", tags=["sessoes"])
 app.include_router(users_router.router, prefix="/users", tags=["users"])
 app.include_router(vendas_router.router, prefix="/vendas", tags=["vendas"])
+app.include_router(imposto_config_router.router, prefix="/impostos-config", tags=["impostos-config"])
+app.include_router(impostos_router.router, prefix="/impostos", tags=["impostos"])
+app.include_router(despesas_router.router, prefix="/despesas", tags=["despesas"])
