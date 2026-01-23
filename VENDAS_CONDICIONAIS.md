@@ -76,25 +76,83 @@ Gerencia produtos recebidos de fornecedores como "empréstimo", com um limite de
 
 ### Endpoints
 
+#### POST `/condicionais-fornecedor/`
+Cria uma nova condicional de fornecedor.
+
+**Request Body:**
+```json
+{
+  "fornecedor_id": "fornecedor_123",
+  "quantidade_max_devolucao": 10,
+  "data_condicional": "2026-01-15",
+  "observacoes": "Produtos para teste"
+}
+```
+
+**Response:**
+```json
+{
+  "id": "condicional_forn_abc"
+}
+```
+
+**Notas:**
+- `quantidade_max_devolucao` pode ser `null` para devolução ilimitada
+- `produtos_id` é inicialmente vazio, produtos são adicionados depois
+
+#### GET `/condicionais-fornecedor/`
+Lista todas as condicionais de fornecedor.
+
+**Response:**
+```json
+[
+  {
+    "_id": "condicional_forn_abc",
+    "fornecedor_id": "fornecedor_123",
+    "produtos_id": ["produto_456", "produto_789"],
+    "quantidade_max_devolucao": 10,
+    "data_condicional": "2026-01-15T00:00:00Z",
+    "observacoes": "Produtos para teste"
+  }
+]
+```
+
+#### GET `/condicionais-fornecedor/{id}`
+Retorna uma condicional específica.
+
+#### GET `/condicionais-fornecedor/{id}/completa`
+Retorna a condicional com dados completos do fornecedor e produtos (agregação).
+
+**Response:**
+```json
+{
+  "_id": "condicional_forn_abc",
+  "fornecedor_id": "fornecedor_123",
+  "fornecedor": {
+    "_id": "fornecedor_123",
+    "nome": "Fornecedor XYZ Ltda"
+  },
+  "produtos": [
+    {
+      "_id": "produto_456",
+      "codigo_interno": "VEST001",
+      "descricao": "Vestido Floral",
+      "itens": [...]
+    }
+  ],
+  "quantidade_max_devolucao": 10,
+  "data_condicional": "2026-01-15T00:00:00Z"
+}
+```
+
 #### POST `/condicionais-fornecedor/{id}/adicionar-produto`
 Adiciona um produto ao condicional de fornecedor.
 
 **Request Body:**
 ```json
 {
-  "produto_id": "string",
-  "quantidade": 1
-}
-```
-
-#### POST `/condicionais-fornecedor/{id}/devolver-itens`
-Devolve itens para o fornecedor.
-
-**Request Body:**
-```json
-{
-  "produto_id": "string",
-  "quantidade": 1
+  "produto_id": "produto_456",
+  "quantidade": 5
 }
 ```
 
@@ -102,24 +160,147 @@ Devolve itens para o fornecedor.
 ```json
 {
   "success": true,
-  "saida_id": "string",
-  "quantidade_devolvida": 1,
-  "pode_devolver_ainda": 5
+  "produto_id": "produto_456",
+  "quantidade": 5
 }
 ```
 
-#### GET `/condicionais-fornecedor/{id}/status-devolucao`
-Retorna o status de devolução do condicional.
+**Notas:**
+- Cria novos itens no produto marcados com este `condicional_fornecedor_id`
+- Itens têm `acquisition_date` = timestamp atual
+- Produto é automaticamente adicionado à lista `produtos_id` da condicional
+
+#### POST `/condicionais-fornecedor/{id}/devolver-itens`
+Devolve itens para o fornecedor.
+
+**Request Body:**
+```json
+{
+  "produto_id": "produto_456",
+  "quantidade": 3
+}
+```
 
 **Response:**
 ```json
 {
-  "condicional_id": "string",
+  "success": true,
+  "saida_id": "saida_dev_xyz",
+  "quantidade_devolvida": 3,
+  "pode_devolver_ainda": 7
+}
+```
+
+**Response (Error - Exceeds Limit):**
+```json
+{
+  "detail": "Limite de devolução excedido. Máximo: 10, Já devolvido: 8"
+}
+```
+
+**Notas:**
+- Remove itens FIFO do estoque (oldest first)
+- Cria registro de Saída tipo "devolucao"
+- Valida limite de devolução (`quantidade_max_devolucao`)
+- Se estoque total do produto zera, produto é deletado automaticamente
+
+#### GET `/condicionais-fornecedor/{id}/status-devolucao`
+Retorna o status de devolução do condicional.
+
+**Query Params (Optional):**
+- `produto_id`: Filtrar por produto específico
+
+**Response:**
+```json
+{
+  "condicional_id": "condicional_forn_abc",
   "quantidade_max_devolucao": 10,
   "quantidade_devolvida": 3,
   "quantidade_pode_devolver": 7,
-  "quantidade_em_condicional": 10
+  "quantidade_em_condicional": 12,
+  "quantidade_vendida": 2
 }
+```
+
+**Notas:**
+- `quantidade_em_condicional`: Total de itens ainda marcados com este condicional
+- `quantidade_vendida`: Quantos itens foram vendidos (originados deste condicional)
+- `quantidade_devolvida`: Quantos já foram devolvidos ao fornecedor
+- `quantidade_pode_devolver`: Quanto ainda pode devolver dentro do limite
+
+#### POST `/condicionais-fornecedor/{id}/processar-condicional`
+Processa o fechamento de uma condicional de fornecedor.
+
+**Request Body:**
+```json
+{
+  "ids_produtos_devolvidos": ["produto_456", "produto_789"]
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "condicional_id": "condicional_forn_abc",
+  "results": [
+    {
+      "produto_id": "produto_456",
+      "modified": true,
+      "produto_deletado": false
+    },
+    {
+      "produto_id": "produto_789",
+      "modified": true,
+      "produto_deletado": true
+    }
+  ]
+}
+```
+
+**Comportamento:**
+- Marca condicional como `fechada: true` e `ativa: false`
+- Produtos em `ids_produtos_devolvidos`: remove itens do estoque
+- Produtos NÃO devolvidos: remove apenas a marcação condicional (viram estoque normal)
+- Se produto fica com estoque zero, é deletado automaticamente
+
+### Workflows Comuns
+
+**Workflow 1: Receber Produtos em Condicional**
+```
+1. POST /condicionais-fornecedor/ 
+   → Criar condicional com limite de devolução
+   
+2. POST /condicionais-fornecedor/{id}/adicionar-produto
+   → Adicionar produto 1
+   
+3. POST /condicionais-fornecedor/{id}/adicionar-produto
+   → Adicionar produto 2
+   
+4. GET /condicionais-fornecedor/{id}/status-devolucao
+   → Verificar status
+```
+
+**Workflow 2: Devolver Itens ao Fornecedor**
+```
+1. GET /condicionais-fornecedor/{id}/status-devolucao
+   → Ver quanto pode devolver
+   
+2. POST /condicionais-fornecedor/{id}/devolver-itens
+   → Devolver alguns itens
+   
+3. GET /condicionais-fornecedor/{id}/status-devolucao
+   → Confirmar novo status
+```
+
+**Workflow 3: Encerrar Condicional**
+```
+1. GET /condicionais-fornecedor/{id}/completa
+   → Ver todos os produtos
+   
+2. POST /condicionais-fornecedor/{id}/processar-condicional
+   → Marcar quais foram devolvidos
+   → Resto vira estoque normal
 ```
 
 ### Frontend
@@ -138,27 +319,192 @@ Gerencia produtos enviados para clientes provarem em casa. O sistema registra qu
 - **Processamento por código**: Devoluções são registradas pelo código interno do produto
 - **Venda automática**: Produtos não devolvidos geram saídas de venda automaticamente
 - **Encerramento**: Condicional é marcada como inativa após processamento
+- **Transações**: Usa transações MongoDB quando disponível (replica set) para garantir atomicidade
+- **Idempotência**: Previne duplicação em caso de requisições repetidas
 
 ### Endpoints
 
-#### POST `/condicionais-cliente/{id}/enviar-produto`
-Envia um produto como condicional para o cliente.
+#### POST `/condicionais-cliente/`
+Cria uma nova condicional de cliente com produtos.
 
 **Request Body:**
 ```json
 {
-  "produto_id": "string",
+  "cliente_id": "cliente_123",
+  "produtos": [
+    {
+      "produto_id": "produto_456",
+      "quantidade": 3
+    },
+    {
+      "produto_id": "produto_789",
+      "quantidade": 2
+    }
+  ],
+  "observacoes": "Cliente quer experimentar em casa"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "id": "condicional_abc123"
+}
+```
+
+**Response (Error - Insufficient Stock):**
+```json
+{
+  "detail": "Estoque insuficiente. Disponível: 1"
+}
+```
+
+**Response (Error - Product Not Found):**
+```json
+{
+  "detail": "Produto não encontrado"
+}
+```
+
+**Notas:**
+- Operação é transacional quando MongoDB está configurado como replica set
+- Em caso de falha parcial, todas as mudanças são revertidas (rollback)
+- Produtos são marcados FIFO (First In, First Out) baseado em `acquisition_date`
+
+#### POST `/condicionais-cliente/{id}/adicionar-produto`
+Adiciona um produto adicional a uma condicional existente.
+
+**Request Body:**
+```json
+{
+  "produto_id": "produto_999",
   "quantidade": 1
 }
 ```
 
-#### POST `/condicionais-cliente/{id}/processar-retorno`
-Processa o retorno de uma condicional de cliente.
+**Response (Success):**
+```json
+{
+  "success": true,
+  "produto_id": "produto_999",
+  "quantidade": 1
+}
+```
+
+**Response (Error):**
+```json
+{
+  "detail": "Condicional não está ativa"
+}
+```
+
+**Notas:**
+- Implementa idempotência: se o produto já existe, incrementa a quantidade
+- Apenas condicionais ativas podem receber novos produtos
+- Verifica disponibilidade de estoque antes de marcar itens
+
+#### POST `/condicionais-cliente/{id}/enviar-produto`
+Alias para `/adicionar-produto` - mesmo comportamento.
+
+#### GET `/condicionais-cliente/{id}/completa`
+Retorna a condicional com dados completos dos produtos e cliente (agregação).
+
+**Response:**
+```json
+{
+  "_id": "condicional_abc123",
+  "cliente_id": "cliente_123",
+  "cliente": {
+    "_id": "cliente_123",
+    "nome": "João Silva",
+    "telefone": "(11) 98765-4321"
+  },
+  "produtos": [
+    {
+      "produto_id": "produto_456",
+      "quantidade": 3,
+      "produto": {
+        "_id": "produto_456",
+        "codigo_interno": "VEST001",
+        "descricao": "Vestido Floral",
+        "valor_venda": 15000
+      }
+    }
+  ],
+  "data_condicional": "2026-01-15T10:30:00Z",
+  "data_devolucao": null,
+  "ativa": true,
+  "observacoes": "Cliente quer experimentar em casa"
+}
+```
+
+#### POST `/condicionais-cliente/{id}/calcular-retorno`
+Calcula o que seria devolvido e vendido sem aplicar mudanças no banco (preview).
 
 **Request Body:**
 ```json
 {
-  "produtos_devolvidos_codigos": ["COD001", "COD002", "COD003"]
+  "produtos_devolvidos_codigos": ["VEST001", "VEST002"]
+}
+```
+
+**Response:**
+```json
+{
+  "condicional_id": "condicional_abc123",
+  "produtos": [
+    {
+      "produto_id": "produto_456",
+      "codigo_interno": "VEST001",
+      "quantidade_enviada": 3,
+      "quantidade_devolvida": 2,
+      "quantidade_vendida": 1
+    },
+    {
+      "produto_id": "produto_789",
+      "codigo_interno": "BLUSA003",
+      "quantidade_enviada": 2,
+      "quantidade_devolvida": 0,
+      "quantidade_vendida": 2
+    }
+  ]
+}
+```
+
+**Notas:**
+- Endpoint de preview - não modifica banco de dados
+- Útil para UI mostrar confirmação antes de processar
+- Conta ocorrências de códigos devolvidos (ex: 2x "VEST001" = 2 unidades devolvidas)
+
+#### POST `/condicionais-cliente/{id}/processar-retorno`
+Processa o retorno definitivo de uma condicional de cliente.
+
+**Request Body (Simple):**
+```json
+{
+  "produtos_devolvidos_codigos": ["VEST001", "VEST002"],
+  "auto_create_sales": true
+}
+```
+
+**Request Body (Advanced - Multiple Sales):**
+```json
+{
+  "produtos_devolvidos_codigos": ["VEST001"],
+  "vendas": [
+    {
+      "produto_id": "produto_789",
+      "quantidade": 1,
+      "valor_total": 15000,
+      "observacoes": "Venda 1"
+    },
+    {
+      "produto_id": "produto_789",
+      "quantidade": 1,
+      "valor_total": 14000,
+      "observacoes": "Venda 2 com desconto"
+    }
+  ]
 }
 ```
 
@@ -166,22 +512,88 @@ Processa o retorno de uma condicional de cliente.
 ```json
 {
   "success": true,
-  "condicional_id": "string",
+  "condicional_id": "condicional_abc123",
   "vendas_criadas": [
     {
-      "saida_id": "string",
-      "produto_id": "string",
+      "saida_id": "saida_xyz789",
+      "produto_id": "produto_456",
       "quantidade": 1
+    },
+    {
+      "saida_id": "saida_xyz790",
+      "produto_id": "produto_789",
+      "quantidade": 2
     }
   ],
   "devolucoes_processadas": [
     {
-      "produto_id": "string",
+      "produto_id": "produto_456",
       "quantidade": 2
     }
   ]
 }
 ```
+
+**Notas:**
+- Produtos devolvidos: marcação condicional é removida, voltam ao estoque normal
+- Produtos não devolvidos: são vendidos e removidos do estoque
+- Condicional é marcada como `ativa: false` após processamento
+- Suporta criar múltiplas vendas para diferentes clientes/valores
+- Se `vendas` fornecido, valida que soma confere com quantidade_vendida calculada
+
+### Idempotência e Retry
+
+**Recomendações:**
+- Em caso de timeout ou erro de rede, é seguro repetir a requisição de criação
+- Sistema previne duplicação incrementando quantidade se produto já existe
+- Para idempotência perfeita, considere usar um `request_id` único no cliente
+
+**Exemplo de Retry Logic (JavaScript):**
+```javascript
+async function criarCondicionalComRetry(data, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await api.post('/condicionais-cliente/', data);
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 400) {
+        // Erro de validação, não retry
+        throw error;
+      }
+      if (i === maxRetries - 1) throw error;
+      await sleep(1000 * (i + 1)); // Backoff exponencial
+    }
+  }
+}
+```
+
+### Transações MongoDB
+
+**Requisitos:**
+- MongoDB configurado como **replica set** ou **sharded cluster**
+- Para ambientes standalone, o sistema usa fallback com rollback manual
+
+**Verificar Suporte a Transações:**
+```bash
+# No mongo shell
+rs.status()
+```
+
+**Configurar Replica Set (Desenvolvimento):**
+```bash
+# docker-compose.yml
+mongodb:
+  image: mongo:6
+  command: --replSet rs0
+  
+# Inicializar replica set
+docker exec -it mongodb mongo --eval "rs.initiate()"
+```
+
+**Logs:**
+- Sistema detecta automaticamente se transações estão disponíveis
+- Logs indicam se operação usou transações ou fallback
+- Exemplo: `"Created condicional abc123 with 2 products (transactional)"`
 
 ### Frontend
 A página de Condicional Cliente (`/condicionais-cliente`) permite:

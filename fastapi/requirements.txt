@@ -6,3 +6,5 @@ uvicorn
 bcrypt
 passlib
 python-jose[cryptography]
+pytest
+pytest-asyncio
